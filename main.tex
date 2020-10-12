@@ -1,11 +1,19 @@
 \documentclass[]{usiinfthesis}
 
+\newcommand{\mynote}[2]{\fbox{\bfseries\sffamily\scriptsize#1}{\small\textsf{\emph{#2}}}\fbox{\bfseries\sffamily\scriptsize}}
+%\newcommand{\mynote}[2]{}{}
+\newcommand\ar[1]{\mynote{AR}{#1}}
+
 \usepackage{minted}
 \usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{rotating}
-\title{Profiling and Analysing Concurrent Libraries on the Java Virtual Machine}
+
+
+
+
+\title{Profiling and Analysing Concurrent Libraries\\ on the Java Virtual Machine}
 \author{Luca Reina}
 \Day{21}
 \Month{October}
@@ -21,64 +29,72 @@
 \begin{abstract}
 
 \large
-Concurrent programming is often used in software applications to enhance performance. Correctly implementing concurrent applications is difficult, especially when it comes to managing mutual exclusion of resources. To ease this task, the Java Class Library (JCL) offers several ready-to-use concurrent data structures. \newline The goal of this dissertation is to create a profiler that can be used to dynamically analyze concurrent applications, collecting data on the usage of concurrent data structures offered by the JCL and consequently helping developers mitigate potential inefficiencies. \newline First, we analyze the JCL to identify interfaces and operations of interest. Then, we design and develop a profiler in DiSL (Domain Specific Language for Instrumentation) that relies on dynamic analysis to instrument the identified data structures. The profiler is carefully designed to reduce the profiling overhead as much as possible. We apply the profiler on several modern benchmarks, collecting data on the usage of concurrent data structures on nowadays applications. Finally, by analyzing the obtained results, we locate and pinpoint performance inefficiencies found thanks to our profiler. 
+Concurrent programming is often used in software applications to enhance performance. Correctly implementing concurrent applications is difficult, especially when it comes to managing mutual exclusion of resources. To ease this task, the Java Class Library (JCL) offers several ready-to-use concurrent data structures. \ar{Libraries, not data structures. We redefined the the term. }\newline The goal of this dissertation is to create a profiler that can be used to dynamically analyze concurrent applications, collecting data on the usage of concurrent data structures \ar{Again, libraries (recurrent comment, please change all occurrences} offered by the JCL and consequently helping developers mitigate potential inefficiencies.\ar{It is not clear which kinds of inefficiencies you are referring to, I would drop the sentence. Better not saying something that saying a vague or unspecified sentence, if you are not clear enough :).} \newline First, we analyze the JCL to identify interfaces and operations of interest\ar{A bit too vague. You identify the most commonly used libraries and methods.}. Then, we design and develop a profiler in DiSL\ar{Not "in DiSL". Rather, the profiler uses or relies on DiSL} (Domain Specific Language for Instrumentation) that relies on dynamic analysis to instrument the identified data structures\ar{classes and methods, not data structures}. The profiler is carefully designed to reduce the profiling overhead as much as possible. We apply the profiler on several modern benchmarks, collecting data on the usage of concurrent data structures in nowadays applications. Finally, by analyzing the obtained results, we locate and pinpoint performance inefficiencies found thanks to our profiler.\ar{I don't think that the last sentence is really true. You rather analyze the obtained data, characterizing the usage of concurrent libraries in modern workloads.}
 \end{abstract}
 \begin{acknowledgements}
 \end{acknowledgements}
 \tableofcontents
 \listoffigures
+\ar{For the list of figures, I suggest to shorten the list, such that each figure spans a single line. You can use the [] environment when you specify the caption.}
+
 \listoftables
+\ar{Same comment for the list of tables. Please shorten the description of each table here.}
+
 \mainmatter
 \chapter{Introduction}
 \large
-This chapter represents an introduction on the work discussed in this thesis dissertation. Section 1.1 illustrates the reasoning behind the need for a profiler for concurrent libraries. Section 1.2 introduces the goals and the challanges we faced. Section 1.3 discusses the contribution brought by our work. Finally, Section 1.4 outlines dissertation structure.
+This chapter introduces the work presented in this thesis dissertation. Section 1.1 illustrates the need for a profiler for concurrent libraries. Section 1.2 introduces the goals and the challenges we faced. Section 1.3 discusses the contribution brought by our work. Finally, Section 1.4 outlines the structure of the dissertation.
 
 
 \section{Motivation}
 For a long time, computation was exclusively sequential, and operations were executed only by single-core processors. Technology was evolving fast, and big leaps forward were achieved almost regularly, producing impactful improvements in the already existing and established architecture. In the early 2000s the focus slowly started shifting as the first multi-core processors began to appear, and concomitant therewith, evolution in technology for single processing units was reaching a peak. 
 
-Nowadays, multi-core architectures represent the norm, and with that, concurrent programming has become fundamental to enhance performance and build competitive software. Nonetheless, writing efficient code that takes proper advantage of this technology is still a complicated -and sometimes troublesome- task. Programmers are in fact often on the lookout for simpler and more efficient ways to achieve concurrency, and programming languages generally offer constructs to approach it in a more structured way. 
+Nowadays, multi-core architectures represent the norm, and with that, concurrent programming has become fundamental to enhance performance and build competitive software. Nonetheless, writing efficient code that takes proper advantage of this technology is still a complicated -\ar{In LaTeX, a single dash should be replaced by three consecutive dashes, i.e., ---}and sometimes troublesome- task. Programmers are in fact often on the lookout for simpler and more efficient ways to achieve concurrency, and programming languages generally offer constructs to approach it in a more structured way. 
 
 However, despite the abundance of available libraries, there are very few studies -if none- on the frequency in which they are used. This information may turn out to be very useful in a variety of contexts:
 
 \begin{itemize}
-    \item \textit{Compiler development}: having reliable and accurate information about the most used methods and classes of concurrent libraries would give compiler developers the opportunity of focusing on optimization for such methods. Thus, creating better performing compilers, specifically designed for real usage.
-    \item \textit{Libraries Implementation}: library implementers would have information about the most used constructs of available concurrent libraries. This data might be used when deciding where to focus their future efforts. For example, improvements could be centered around popular libraries and less on the least used ones. The same libraries could also operate as a blueprint when developing new ones.
+    \item \textit{Compiler development}: having reliable and accurate information about the most used methods and classes of concurrent libraries in modern workloads would give compiler developers the opportunity of focusing on optimizations for such methods, thus creating better performing compilers. %, specifically designed for real usage.
+    \item \textit{Libraries implementation}: library implementers would have information about the most used constructs of available concurrent libraries. This data might be used when deciding where to focus their future efforts. For example, improvements could be centered around popular libraries and less on the least used ones. The same libraries could also operate as a blueprint when developing new ones.
     \item \textit{Research}: empirical studies on the usage of libraries are generally welcomed by the research community since they represent accurate information that could be used for future research developments.
 \end{itemize}
 Yet, to the best of our knowledge, there exist no profilers that can collect this type of information. 
 
 \section{Goals and Challenges}
-In this dissertation, we present the design and the development of an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the Java Class Library (JCL) for software running on the Java Virtual Machine (JVM). Accuracy is ensured through careful implementation, testing, and usage of DiSL (Domain Specific Language for Instrumentation), domain-specific language specifically designed for out-of-process bytecode instrumentation, that relies on Aspect-Oriented Programming (AOP) principles to allow the implementation of dynamic analysis for applications running on the JVM. Efficiency is ensured through the DiSL Reflection API, which makes it possible to avoid the usage of expensive runtime checks, and the Shadow VM, which allows elaborating the gathered data in a separate JVM. 
+In this dissertation, we present the design and the development of an accurate and efficient profiler that can collect information on the usage of concurrent libraries included in the Java Class Library (JCL) for software running on the Java Virtual Machine (JVM). Accuracy is ensured through careful implementation, testing, and usage of DiSL, a domain-specific language and framework for bytecode instrumentation. %, that relies on Aspect-Oriented Programming (AOP) principles to allow the implementation of dynamic analysis for applications running on the JVM. 
+\ar{I've dropped lengthy descriptions. I think that here the text should be concise, technical details can be given later.}
+Efficiency is ensured through the DiSL Reflection API, which makes it possible to avoid the usage of expensive runtime checks, and the Shadow VM, which allows elaborating the gathered data in a separate JVM. \ar{Please add citations to DiSL, ShadowVM and DISL Ref API when you use them.}
+\ar{Re efficiency, Another important point: careful instrumentation that makes use of efficient data structures and instrument as less code as possible}
 
-Our work faces remarkable challenges. The profiler needs to focus on many different tasks in order to achieve accurate data collection of methods usage frequency. For example, the problem of instrumenting \textit{nested methods}: instrumented methods that aren’t part of the target application code, rather of the source-code implementation of other instrumented methods. If not handled correctly, it may lead to incorrect measurements. Our work identifies where method nesting happens and employs efficient techniques in order to guarantee profiler accuracy. Furthermore, our profiling includes the injection of instrumentation code inside the target application, which may cause data perturbation and performance slowdown, if not carefully designed. Our work takes advantage of several techniques to keep data disruption and overhead at their minimum, profiling techniques, and architectural design choices specifically implemented in order to increase the efficiency and accuracy of the profiler.
+Our work faces remarkable challenges. The profiler needs to focus on many different tasks in order to achieve accurate data collection of methods usage frequency. For example,\ar{I would list all challenges, not using words like "for example"} the problem of instrumenting \textit{nested methods}: instrumented methods that aren’t part of the target application code, rather of the source-code implementation of other instrumented methods. \ar{This is interesting, but needs to be better explained. Let's define them as "nested method invocations", that are invocations to instrumented methods inside other instrumented methods. If not handled correctly, the profiler will detect calls to libraries done by library code rather than user code, which may be undesireable}
+If not handled correctly, it may lead to incorrect measurements. Our work identifies where method nesting happens and employs efficient techniques in order to guarantee profiler accuracy. Furthermore, our profiling includes the injection of instrumentation code inside the target application, which may cause data perturbation\ar{measurement perturbation, not data perturbation.} and performance slowdown, if not carefully designed. Our work takes advantage of several techniques to keep data disruption and overhead at their minimum\ar{You cannot guarantee *minimum* overhead. You can guarantee *low* overhead}, profiling techniques, and architectural design choices specifically implemented in order to increase the efficiency and accuracy of the profiler.
 
 
 \section{Contributions}
-To achieve our goal of collecting information on the usage of concurrent libraries of the Java Class Library for applications running on the JVM, this dissertation makes the following contributions.
+To achieve our goal of collecting information on the usage of concurrent libraries made available by the Java Class Library \ar{Once the acronym has been introduced, please keep using it.} and used by applications running on the JVM, this dissertation makes the following contributions.
 
 \subsection{Analysis}
-Previous careful analysis of the JCL, we select all the relevant classes and inter-faces of concurrent libraries, and we divide them into 5 categories, which leadsto the definition of as many different profiler modules, named as follows:
+By carefully analyzing  the JCL, we select all the relevant classes and interfaces representing concurrent libraries, and we divide them into 5 categories, which leads to the definition of as many different profiler modules, named as follows:
 \begin{itemize}
-    \item \textbf{CCOLL}: It focuses on concurrent collections and queues.
-    \item \textbf{SCOLL}: It focuses on synchronized collections.
-    \item \textbf{ELOCK}: It focuses on explicit locks.
-    \item \textbf{SYNCHRONIZERS}: It focuses on synchronizers.
-    \item \textbf{FUTURE}: It focuses on asynchronous computation.
+    \item \textbf{CCOLL}, focusing on concurrent collections and queues.
+    \item \textbf{SCOLL}, focusing on synchronized collections.
+    \item \textbf{ELOCK}, focusing on explicit locks.
+    \item \textbf{SYNCHRONIZERS}, focusing on synchronizers.
+    \item \textbf{FUTURE}, focusing on asynchronous computation.
 \end{itemize}
-For every selected class, we choose all the major methods of interest. In order to minimize overhead and to avoid introducing unnecessary complexity, we don’t want to use our profiler to analyze all class methods. Instead, we want to select a smaller, but significant, group of them, leaving out minor methods. To accomplish this task, we follow two main criteria: perceived high frequency in usage and structure modification power (i.e. all methods that execute operations of data modification inside the represented structures: creation, deletion, and modification methods).
+For every selected class, we choose all the major methods of interest. In order to minimize overhead and to avoid introducing unnecessary complexity, we don’t want\ar{"don't want" is rather informal, please prefer more formal words} to use our profiler to analyze all class methods. Instead, we want to select a smaller, but significant, group of them, leaving out minor methods\ar{side methods}. To accomplish this task, we follow two main criteria: perceived high frequency in usage and structure modification power (i.e. all methods that execute operations of data modification inside the represented structures: creation, deletion, and modification methods).
 
 \subsection{Profiler}
-We design and develop an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the JCL for software running on the JVM. Profiler architecture is composed of three different JVMs running simultaneously and that communicates with one another. Firstly, the Target Application Server, where the software to be profiled runs. Then, the DiSL server, which is responsible for out of process bytecode instrumentation, thus, for intercepting specific events of the target application, and then for injecting them with the instrumentation code. Analysis data is collected inside the target application server, which then sends it to the ShadowVM: the server specifically designed for the analysis operations. It is used instead of injecting the target application with the analysis code, therefore reducing the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible data perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
+We design and develop an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the JCL for software running on the JVM. The profiler  is composed of three different JVMs running simultaneously and that communicate with one another. Firstly, the Target Application Server, where the software to be profiled runs.\ar{No. This is the target application (not server) and is the observed application, where the original program + the instrumentation logic run} Then, the DiSL server, which is responsible for out-of-process bytecode instrumentation, thus, for intercepting the loading of specific classes by the target application, and then for injecting them with the instrumentation code as needed. Analysis data is collected inside the target application, which then sends it to the ShadowVM: the server specifically designed for the analysis operations.\ar{Please be explicit on the fact that it is the third component} This component avoids the injection of analysis code in the target application, which reduces the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible data perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
 \begin{itemize}
-\item \textbf{Instrumentation classes}: they are responsible for defining the actual method's instrumentation code. They ask the DiSL server to intercept specified events occurring in the target applications and inject them with DiSL code snippets. For every method of interest, instrumentation increments a specific counter, that will be then sent to the analysis server by the Local classes.
+\item \textbf{Instrumentation classes}: they are responsible for defining  instrumentation code. They ask the DiSL server to intercept specified events occurring in the target applications and injects them with DiSL code snippets.\ar{This is not totally correct. Such classes tell DiSL which classes and methods should be instrumented to profile events of interest. It is not the other way round.}   For every method of interest, instrumentation increments a specific \ar{Important: thread-local counters. This is one of the things that make your profiler efficient} counter, that will be then sent to the analysis server by the Local classes.
 \item \textbf{Guard classes}: they are used inside Instrumentation classes and they are responsible for the selection of the instrumentation sites for each method of interest. They also implement the DiSL Reflection API technology, exploiting reflective information of the JCL.
-\item \textbf{Local classes}: they implement the profiler inside the target application, collecting instrumented data gathered by the Instrumentation classes, in order to then send them to the analysis server.
+\item \textbf{Local classes}: they implement the profiler logic inside the target application, collecting instrumented data gathered by the Instrumentation classes, in order to then send them to the analysis server.
 \item \textbf{Remote classes}: they are responsible for elaborating data collected from the profiling of the target application. They exploit ShadowVM technology, which is a separate virtual machine specifically designed for data analysis.
 \end{itemize}
 
 \subsection{Evaluation}
-We evaluate the profiler execution on established benchmarks, focusing on the frequency of concurrent method usage, and profiler performance. We collect frequency method usage information on concurrent libraries by profiling \textit{Renaissance}: a well-established benchmark suite containing a range of modern workloads -mainly concurrent- specifically designed for the JVM. This data is, to the best of our knowledge, completely novel. Our analysis shows that the most used libraries are the concurrent collections (CCOLL) and the explicit locks (ELOCK) with overall more than \(5*10^7\) method calls each. Synchronized collections (SCOLL) and asynchronous computation libraries (FUTURE) are far less used, with less than \(8*10^3\) method calls each. A bit more popular, but still much less used in comparison with the first two, are the synchronizers (SYNCHRONIZERS) with less than \(3*10^3\) method usage. In order to ensure efficiency, we also analyse the execution time for each profiler module and none of them scores more than 1,08x of overhead.
+We evaluate the profiler execution on established benchmarks, focusing on the frequency of concurrent method usage and profiler performance. We collect frequency method usage information on concurrent libraries by profiling \textit{Renaissance}: a well-established benchmark suite containing a range of modern workloads -mainly concurrent- specifically designed for the JVM. \ar{Add citation to Renaissance}This data is, to the best of our knowledge, completely novel. Our analysis shows that the most used libraries are the concurrent collections (CCOLL) and the explicit locks (ELOCK) with overall more than \(5*10^7\) method calls each. Synchronized collections (SCOLL) and asynchronous computation libraries (FUTURE) are far less used, with less than \(8*10^3\) method calls each. A bit more popular, but still much less used in comparison with the first two, are the synchronizers (SYNCHRONIZERS) with less than \(3*10^3\) method usage. In order to ensure efficiency, we also analyse the execution time for each profiler module and none of them scores more than 1,08x of overhead.
 
 \section{Dissertation Outline}
 
@@ -87,25 +103,27 @@ We evaluate the profiler execution on established benchmarks, focusing on the fr
 [DRAFT: Introdurre Introduzione capitolo]
 
 \section{Bytecode Instrumentation}
-\textit{Bytecode instrumentation} is a technique that allows to change the code of compiled class applications. Specifically in Java, it allows to modify the code of \textit{.class} files produced by the Java Compiler. It can be achieved in three different ways:
+\textit{Bytecode instrumentation} is a technique that allows to change the code of compiled class applications.\ar{"compiled class applications" is unclear to me"} Specifically in Java, it allows to modify the code of \textit{.class} files produced by the Java Compiler. It can be achieved in three different ways:
 \begin{itemize}
-    \item \textbf{At Compile-Time:} It is simplest way to implement it, and it is achieved by adding instrumentation to classfiles before the application is run. However, it may be wastful, instrumenting many unused classes, and it can only focus on classes available at compile-time.
+    \item \textbf{At Compile-Time:} It is the simplest way to implement it, and it is achieved by adding instrumentation to classfiles before the application is run. However, it may be wasteful, instrumenting many unused classes, and it can only focus on classes available at compile-time.
     \item \textbf{At Load-Time:} It is achieved by injecting instrumentation code inside loaded classfiles before linking. There are two types:
     \begin{itemize}
-        \item \textbf{In-Process}: it is executed inside the target application, and it allows to instrument all loaded classes. However it may cause \textit{infinite instrumentation recursion}, when instrumenting a construct with an injection of the same construct (e.g. We're instrumenting all \textit{System.out.println} method of a certain class, printing a message every time we encounter this instruction. In order to do so, we inject all methods with another \textit{System.out.println}. However, these methods will not be excluded from the analysis. Thus, They will be injected with another \textit{System.out.println}, which, in turn, will be also instrumented, creating an infinite stream of instrumentation recursion). Since instrumentation to the JCL might create this type of problem, it is often excluded, limiting bytecode coverage. it also might cause interference with JVM initialization or class loading.
-        \item \textbf{Out-Of-Process:} It is the most difficult to implement, but it also the most beneficial. It tackles the infinite instrumentation recursion problem, while allowing \textit{full bytecode coverage}, ergo, the possibility to instrument the JCL. Access to reflective information of the loaded classes might be limited. However, successful attempts to overcome this problem have been made.
+        \item \textbf{In-Process}: it is executed inside the target application, and it allows to instrument all loaded classes. However it may cause \textit{infinite instrumentation recursion}, when instrumenting a construct with an injection of the same construct (e.g., we're instrumenting all \textit{System.out.println}\ar{Please define an uniform style for all code in the thesis, and make sure that all code uses it. You are now using textit, you may use also texttt (which looks more familiar to me)} method of a certain class, printing a message every time we encounter this instruction. In order to do so, we inject all methods with another \textit{System.out.println}. However, these methods will not be excluded from the analysis. Thus, They will be injected with another \textit{System.out.println}, which, in turn, will be also instrumented, creating an infinite stream of instrumentation recursion).\ar{This long sentence cannot go between parenthesis, please avoid them.} Since instrumentation to the JCL might create this type of problem, it is often excluded, limiting bytecode coverage. it also might cause interference with JVM initialization or class loading.
+        \item \textbf{Out-Of-Process:} It is the most difficult to implement, but it also the most beneficial. It tackles the infinite instrumentation recursion problem, while allowing \textit{full bytecode coverage}, ergo, the possibility to instrument the JCL. Access to reflective information of the loaded classes might be limited. However, successful attempts to overcome this problem have been made. \ar{It is not clear what this type of instrumentation actually does (i.e., send the bytes of the loaded class to another process, which will perform the instrumentation and then send the instrumented class back to the target app)}
     \end{itemize}
 \end{itemize}
 
 
 \section{AOP: Aspect-Oriented Programming}
-Bytecode Instrumentation is often used in \textit{aspect-oriented programming} to implement \textit{aspects} into the code, which are features added to specific parts of a software. This programming paradigm doesn't aim to introduce new functionalities -even though it potentially could-, rather to trace program behaviours or properties, augmenting them only temporarily.
+Bytecode Instrumentation is often used in \textit{aspect-oriented programming} to implement \textit{aspects} into the code,\ar{It is the other way round: AOP is used to specify bytecode instrumentation} which are features added to specific parts of a software. This programming paradigm doesn't aim to introduce new functionalities -even though it potentially could-, rather to trace program behaviours or properties, augmenting them only temporarily.
 
 
 \section{Dynamic Analysis}
 \textit{Dynamic Analysis} is a programming technique that aims to evaluate programs during their execution, rather than examining code statically. It can be used for a multitude of software engineering purposes: software testing, profiling, debugging, and reverse engineering. It's strengths reside in the usage of real data to asses software functionalities and performance deficiencies, gathering information that otherwise would be nearly impossible to get with static approaches. 
 
 \section{DiSL}
+
+\ar{I think this part is not finished right? It seems more like a list than a concrete section.}
 
 Instrumentation site which specifies the code location of target applications, where instrumentation will be injected. It can be described through:
 Annotations:  to specify the type and the timing of the snippet. For example to indicate that the instrumentation will be injected before or after a specific bytecode instruction.
@@ -116,24 +134,26 @@ Instrumentation body which represents the actual code instructions instantiated 
 Access Synthetic Local Variables: to allow passage of data through instrumentation sites.
 Access Static Context information: to allow information access to data collected at instrumentation time, such as method or class names, signatures, visibility, etc.
 Access Dynamic Context information: to allow information access to data collected at runtime, such as method argument values, local variable values, class instance, etc.
-\textit{DiSL} (\textbf{D}omain \textbf{S}pecific \textbf{L}anguage for \textbf{i}nstrumentation) is a language designed for out-of-process bytecode instrumentation, that relies on AOP principles to allow efficient and accurate implementation of dynamic analysis mechanisms for Java applications. DiSL instrumentation code is written through code snippets, which are structured with two major constructs. Firstly, \textbf{instrumentation site} which specifies the code location of target applications, where instrumentation will be injected. It can be described through::
+\textit{DiSL} (\textbf{D}omain \textbf{S}pecific \textbf{L}anguage for \textbf{i}nstrumentation) is a language designed for out-of-process bytecode instrumentation, that relies on AOP principles to allow efficient and accurate implementation of dynamic analysis mechanisms for Java applications. DiSL instrumentation code is written through code snippets, which are structured with two major constructs. Firstly, \textbf{instrumentation site} which specifies the code location of target applications, where instrumentation will be injected. It can be described through:
 \begin{itemize}
-    \item \textit{Annotations}: to specify the type and the timing of the snippet. For example to indicate that the instrumentation will be injected before or after a specific bytecode instruction.
+    \item \textit{Annotations}: to specify the type and the timing of the snippet. For example to indicate that the instrumentation will be injected before or after a specific bytecode instruction.\ar{I think that "timing" is not a correct word here. "Location"?}
     \item \textit{Markers}: to allow access to specific classfiles code regions. For example to mark precise bytecode instructions or the body of an indicated method.
     \item \textit{Scopes}: to allow specification of constructs name. For example to indicate the precise name of a method to be instrumented from a specific class. 
     \item \textit{Guards}: to allow further filtering through static analysis executed at weave-time.
 \end{itemize}
-Secondly, \textbf{instrumentation code} which are instantiated and inlined in the correspondent instrumentation sites and they may:
+Secondly, \textbf{instrumentation code} which is instantiated and inlined in the correspondent instrumentation sites and they may:
 \begin{itemize}
     \item \textit{Access Synthetic Local Variables}: to allow passage of data through instrumentation sites.
-    \item \textit{Access Static or Dynamic Context information}: of the target program. For example, method name, signatures or object instances.
-    \item \textit{Process Method Arguments}: with actual real values.
+    \item \textit{Access Static or Dynamic Context information} of the target program. For example, method name, signatures or object instances.
+    \item \textit{Process Method Arguments}, with actual real values.
 \end{itemize}
 
-\subsection{DiSL Reflection API}
-As previously discussed, DiSL relies on an out-of-process bytecode instrumentation architecture, which means that instrumentation will be injected from the DiSL server to the JVM of the target application. This type of engineering doesn't ensure by default, complete reflective information of loaded classes. It allows, in fact, to instrument objects of the target class or objects that are direct subtypes of the target class. This excludes every class that is an indirect subtype of the target class. For example, if we wanted to instrument -without reflective information- the method \textit{clear} of the \textit{java.util.Map} interface and all of its inheriting classes, we would automatically be instrumenting also the same method for the \textit{java.util.ConcurrentMap} interface, since it extends directly the \textit{java.util.Map} interface. However, if we wanted to also instrument the same method in the class \textit{java.util.ConcurrentHashMap}, which implements \textit{java.util.ConcurrentMap}, it wouldn't be possible without very expensive dynamic checks. Thus, it would still be possible to pursue an accurate analysis, it would cost us important resources in terms of performance and time.
+\ar{Make sure to add again proper citations to all the technologies you use: DiSL, ShadowVM, DiSL Refl. API all have published papers.}
 
-\textbf{DiSL Reflection API} solves this problem. It is a technology utilized by DiSL that allows full reflective information of loaded classes of the JCL. It works by preprocessing the entire class hierarchy of the JCL, before running the JVM, and storing the necessary information. So that, once the JVM starts, it is possible to build the correct class parentage, avoiding errors due to the impossibility of indirect subtypes deduction.
+\subsection{DiSL Reflection API}
+As previously discussed, DiSL relies on an out-of-process bytecode instrumentation architecture, which means that instrumentation will be injected from the DiSL server to the JVM of the target application.\ar{More correctly, it means that the instrumentation will be performed by a JVM different from the one of the target application}  This type of engineering doesn't ensure by default, complete reflective information of loaded classes. It allows, in fact, to instrument objects of the target class or objects that are direct subtypes of the target class. This excludes every class that is an indirect subtype of the target class. For example, if we wanted to instrument -without reflective information- the method \textit{clear} of the \textit{java.util.Map} interface and all of its inheriting classes, we would automatically be instrumenting also the same method for the \textit{java.util.ConcurrentMap} interface, since it extends directly the \textit{java.util.Map} interface. However, if we wanted to also instrument the same method in the class \textit{java.util.ConcurrentHashMap}, which implements \textit{java.util.ConcurrentMap}, it wouldn't be possible without very expensive dynamic checks. Thus, it would still be possible to pursue an accurate analysis, it would cost us important resources in terms of performance and time.
+
+\textbf{DiSL Reflection API} solves this problem. It is a technology utilized by DiSL that allows full reflective information\ar{No. It allows partial reflective information. In particular, it only allows to know who are the supertypes of the class under instrumentation.}  of loaded classes of the JCL. It works by preprocessing the entire class hierarchy of the JCL\ar{No. It works by force-loading the instrumentation of all the supertypes before instrumenting the subclass}, before running the JVM, and storing the necessary information. So that, once the JVM starts, it is possible to build the correct class parentage, avoiding errors due to the impossibility of indirect subtypes deduction.
 
 \subsection{Shadow VM}
 
@@ -151,8 +171,9 @@ DiSL, as described so far, allows out-of-process bytecode instrumentation. There
     \caption{ShadowVM architecture at a high level.}
     \label{fig:fig1}
 \end{figure}
+\ar{I would remove this figure. I would instead use a similar one, completely described, when presenting the architecture of the profiler. Images without any description in the text should be removed}
 
-In order to mitigate these complications, DiSL offers the possibly to utilize the \textbf{Shadow VM}, which is an additional Java Virtual Machine, introduced to separate the process of gathering data, with the actual analysis. With this technology, instrumentation code snippets injected and run into the target application JVM, are responsible only for the collection of the needed information. Then, through the APIs offered by DiSL, this data is sent to the ShadowVM, where it is organized and analysed as desired. 
+In order to mitigate these complications, DiSL offers the possibly to utilize the \textbf{Shadow VM}, which is an additional Java Virtual Machine\ar{again, use acronym}, introduced to separate the process of gathering data, with the actual analysis. With this technology, instrumentation code snippets injected and run into the target application JVM, are responsible only for the collection of the needed information. Then, through the APIs offered by DiSL, this data is sent to the ShadowVM, where it is organized and analysed as desired. 
 
 This type of approach significantly reduces overhead and data disruption, while also improving:
 \begin{enumerate}
@@ -163,6 +184,8 @@ This type of approach significantly reduces overhead and data disruption, while 
 \section{Libraries}
 As mentioned in the introduction, the profiler targets concurrent structures of the JCL, dividing the focus on 5 different modules. This section is not meant to be a detailed list of analysed classes and methods, but rather an explanation on the reasoning behind the grouping and an introductory description of every single module. Further classifications will be discussed in chapter [DRAFT].
 
+\ar{Please mention explicitly that the division presented here is a division that you made personally. It is not a "common" division, it is a categorization made to semantically divide different entities made available by the JCL.}
+
 \subsection{Synchronized Collections}
 Since Java 2, the JCL offered the \textit{Collections framework} which is a set of classes and interfaces that allows implementation and manipulation of commonly reusable data structures, such as lists, sets, maps, etc. Although concurrent programming with this type of data structures is possible, it can also result in an intimidating and error-prone task. In order to ease this job, Java introduced over the years new constructs that implicitly ensures thread-safety, sparing programmers to do it themselves. Synchronized collections are a prime example of this concept. They are synchronization wrappers for standard collections: a group of 6 static methods of the \textit{Collections} class, that receive in input standard data structure objects, returning thread-safe collections. Synchronization is ensured with intrinsic locking, which enforces exclusive access to the wrapped collections. Data consistency/integrity is assured, but with a possible penalty in performance.
 
@@ -170,9 +193,9 @@ Since Java 2, the JCL offered the \textit{Collections framework} which is a set 
 We decided to group this type of classes together in order to build a specific profiler module called SCOLL.
 
 \subsection{Concurrent Collections and Queues}
-Another example of constructs introduced to ensure thread-safety are concurrent collections. They were added with the launch of Java 5, and more specifically of the \textit{java.util.concurrent} library, where the collection framework has been expanded in order to fit the new concurrent architectures, introducing specific collection implementations, designed to be used in multi-threaded contexts. Compared with the synchronized collections, the main differences reside in the following two areas of interest:
+Another example of constructs introduced to ensure thread-safety are concurrent collections. They were added with the launch of Java 5, and more specifically of the \textit{java.util.concurrent} library, where the collection framework has been expanded in order to fit the new concurrent architectures, introducing specific collection implementations, designed to be used in multi-threaded contexts. Compared with the synchronized collections, the main differences reside in the following two aspects:
 \begin{enumerate}
-    \item \textit{Architecture}: while synchronized collections are static wrapper methods of a single class, concurrent collections are a list of classes and interfaces. Thus, programmers are able manipulate the latter, expanding and implementing them, increasing customization opportunities. However, programmers familiarity with concurrent collections methods might not be immediate, since they might differ from the ones of the standard library. This is not the case with synchronized collections, since they return the same standard objects, but wrapped to ensure thread-safety.  
+    \item \textit{Architecture}: while synchronized collections are static wrapper methods of a single class, concurrent collections are a list of classes and interfaces. Thus, programmers are able to manipulate the latter, expanding and implementing them, increasing customization opportunities. However, programmers familiarity with concurrent collections methods might not be immediate, since they might differ from the ones of the standard library. This is not the case with synchronized collections, since they return the same standard objects, but wrapped to ensure thread-safety.  
     \item \textit{Behaviour}: contrary to synchronized collections, that ensure thread-safety by enforcing exclusive access through intrinsic locking, concurrent collections divide data structures into segments, allowing access accordingly. Thus, multiple threads can access the same collection at the same time. Depending on the implementation requirement, the library usage choice should be done accordingly.
 \end{enumerate}
 
@@ -181,7 +204,7 @@ We decided to group this type of classes together in order to build a specific p
 
 
 \subsection{Synchronizers}
-Another framework introduced with the \textit{java.util.concurrent} package is defined as Synchronizers. It is a collection of five concrete classes representing common mechanisms for managing synchronization, locking of threads and queuing automatically. They vary according to the number of states managed by the class: exclusive states versus shared states.
+Another framework introduced with the \textit{java.util.concurrent} package is defined\ar{It is not defined. It is a categorization you made} as Synchronizers. It is a collection of five concrete classes representing common mechanisms for managing synchronization, locking of threads and queuing automatically. They vary according to the number of states managed by the class: exclusive states versus shared states.
 
 \noindent
 We decided to group this type of classes together in order to build a specific profiler module called SYNCHRONIZERS.
@@ -191,7 +214,7 @@ We decided to group this type of classes together in order to build a specific p
 Another way to represent synchronization can be found inside the \textit{java.util.concurrent} package, where a subpackage named \textit{locks} is located. It is a framework that can be used to explicitly represent operations such as locking and waiting for conditions. It differs from the common \textit{synchronization} block since it gives much more flexibility, at the cost of a more complex and awkward syntax. The main differences are:
 \begin{enumerate}
     \item While a synchronized block is contained inside a method, explicit locks operations (i.e. \textit{lock()}, \textit{unlock()}, etc.) can be managed in different methods.
-    \item Explicit locks allow the usage of \textit{fairnes}, while synchronized blocks don't.
+    \item Explicit locks allow the usage of \textit{fairness}, while synchronized blocks don't.
     \item The explicit locks framework offers methods for lock acquiring operations that reduce thread blocking time (i.e. \textit{tryLock()}).
     \item In a synchronized block a waiting thread can't be interrupted, while explicit locks offer methods to accomplish this task (i.e. \textit{lockInterruptibly()})
 \end{enumerate}
@@ -200,7 +223,7 @@ Another way to represent synchronization can be found inside the \textit{java.ut
 We decided to group this type of classes together in order to build a specific profiler module called ELOCKS.
 
 \subsection{Future}
-The last framework we decided to add to the profiler was the Future interface and relative subclasses. They are used in contexts of asynchronous computation and -in particular- when waiting for the results. In the case of heavy operations, that require a long time to complete, it is possible to use futures to encapsulate future results of these operations, allowing to continue execution of other operations, while waiting for the heavy task to complete.
+The last framework\ar{Not a framework, but classes or libraries} we decided to add to the profiler was the Future interface and relative subclasses. They are used in contexts of asynchronous computation and -in particular- when waiting for the results. In the case of heavy operations, that require a long time to complete, it is possible to use futures to encapsulate future results of these operations, allowing to continue execution of other operations, while waiting for the heavy task to complete.
 
 \noindent
 We decided to group this type of classes together in order to build a specific profiler module called FUTURE.
