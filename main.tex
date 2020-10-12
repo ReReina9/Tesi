@@ -107,16 +107,7 @@ Bytecode Instrumentation is often used in \textit{aspect-oriented programming} t
 
 \section{DiSL}
 
-Instrumentation site which specifies the code location of target applications, where instrumentation will be injected. It can be described through:
-Annotations:  to specify the type and the timing of the snippet. For example to indicate that the instrumentation will be injected before or after a specific bytecode instruction.
-Markers: to allow access to specific classfile code regions. For example to mark precise bytecode instructions or the body of an indicated method.
-Scopes:  to allow specification of constructs name. For example to indicate the precise name of a method to be instrumented from a specific class.
-Guards: to allow further filtering through static analysis executed at weave-time.
-Instrumentation body which represents the actual code instructions instantiated and inlined in the correspondent instrumentation sites. They may:
-Access Synthetic Local Variables: to allow passage of data through instrumentation sites.
-Access Static Context information: to allow information access to data collected at instrumentation time, such as method or class names, signatures, visibility, etc.
-Access Dynamic Context information: to allow information access to data collected at runtime, such as method argument values, local variable values, class instance, etc.
-\textit{DiSL} (\textbf{D}omain \textbf{S}pecific \textbf{L}anguage for \textbf{i}nstrumentation) is a language designed for out-of-process bytecode instrumentation, that relies on AOP principles to allow efficient and accurate implementation of dynamic analysis mechanisms for Java applications. DiSL instrumentation code is written through code snippets, which are structured with two major constructs. Firstly, \textbf{instrumentation site} which specifies the code location of target applications, where instrumentation will be injected. It can be described through::
+\textit{DiSL} (\textbf{D}omain \textbf{S}pecific \textbf{L}anguage for \textbf{i}nstrumentation) is a domain-specific language designed for out-of-process bytecode instrumentation, that relies on AOP principles to allow efficient and accurate implementation of dynamic analysis mechanisms for Java applications. DiSL instrumentation code is written through code snippets, which are structured with two major constructs. Firstly, \textbf{instrumentation site} which specifies the code location of target applications, where instrumentation code will be injected. It can be described through:
 \begin{itemize}
     \item \textit{Annotations}: to specify the type and the timing of the snippet. For example to indicate that the instrumentation will be injected before or after a specific bytecode instruction.
     \item \textit{Markers}: to allow access to specific classfiles code regions. For example to mark precise bytecode instructions or the body of an indicated method.
@@ -126,31 +117,22 @@ Access Dynamic Context information: to allow information access to data collecte
 Secondly, \textbf{instrumentation code} which are instantiated and inlined in the correspondent instrumentation sites and they may:
 \begin{itemize}
     \item \textit{Access Synthetic Local Variables}: to allow passage of data through instrumentation sites.
-    \item \textit{Access Static or Dynamic Context information}: of the target program. For example, method name, signatures or object instances.
-    \item \textit{Process Method Arguments}: with actual real values.
+    \item \textit{Access Static Context information}: to allow information access to data collected at instrumentation time, such as method or class names, signatures, visibility, etc.
+    \item \textit{Access Dynamic Context information}: to allow information access to data collected at runtime, such as method argument values, local variable values, class instance, etc.
 \end{itemize}
 
 \subsection{DiSL Reflection API}
-As previously discussed, DiSL relies on an out-of-process bytecode instrumentation architecture, which means that instrumentation will be injected from the DiSL server to the JVM of the target application. This type of engineering doesn't ensure by default, complete reflective information of loaded classes. It allows, in fact, to instrument objects of the target class or objects that are direct subtypes of the target class. This excludes every class that is an indirect subtype of the target class. For example, if we wanted to instrument -without reflective information- the method \textit{clear} of the \textit{java.util.Map} interface and all of its inheriting classes, we would automatically be instrumenting also the same method for the \textit{java.util.ConcurrentMap} interface, since it extends directly the \textit{java.util.Map} interface. However, if we wanted to also instrument the same method in the class \textit{java.util.ConcurrentHashMap}, which implements \textit{java.util.ConcurrentMap}, it wouldn't be possible without very expensive dynamic checks. Thus, it would still be possible to pursue an accurate analysis, it would cost us important resources in terms of performance and time.
+As previously discussed, DiSL relies on an out-of-process bytecode instrumentation architecture, which means that instrumentation will be injected from the DiSL server to the JVM of the target application. This type of engineering doesn't ensure by default, complete reflective information of loaded classes. It allows, in fact, to instrument objects of the target class or objects that are direct subtypes of the target class. This excludes every class that is an indirect subtype of the target class. For example, if we wanted to instrument -without reflective information- the method \textit{clear} of the \textit{java.util.Map} interface and all of its inheriting classes, we would automatically be instrumenting also the same method for the \textit{java.util.ConcurrentMap} interface, since it extends directly the \textit{java.util.Map} interface. However, if we wanted to also instrument the same method in the class \textit{java.util.ConcurrentHashMap}, which implements \textit{java.util.ConcurrentMap}, we would need to use very expensive dynamic checks. Thus, it would still be possible to pursue an accurate analysis, however, it would cost us important resources in terms of performance and time.
 
-\textbf{DiSL Reflection API} solves this problem. It is a technology utilized by DiSL that allows full reflective information of loaded classes of the JCL. It works by preprocessing the entire class hierarchy of the JCL, before running the JVM, and storing the necessary information. So that, once the JVM starts, it is possible to build the correct class parentage, avoiding errors due to the impossibility of indirect subtypes deduction.
+\textbf{DiSL Reflection API} solves this problem. It is a technology utilized by DiSL that provides reflective information about the supertypes of the classes under instrumentation. So that, once the JVM starts, it is possible to build the correct class parentage, avoiding usage of expensive runtime checks, otherwise necessary in an out-of-process bytecode instrumentation architecture.
 
 \subsection{Shadow VM}
 
-
-DiSL, as described so far, allows out-of-process bytecode instrumentation. Therefore, every code snippet inlined into the target application, will be run inside the target application JVM itself. Even though it actually is the ultimate goal of this architecture, it still exhibits two major problems:
+DiSL, as described so far, allows out-of-process bytecode instrumentation. Therefore, every code snippet inlined into the target application runs inside the target application JVM itself. Even though it actually is the ultimate goal of this architecture, it still exhibits two major problems:
 \begin{enumerate}
     \item \textit{Reduced performance}: Introducing new instructions inside an application will necessarily weight down program execution time, consequently increasing the overhead.
-    \item \textit{Potential data disruption}: time is not the only resource impacted when a software is augmented with new instructions. Memory usage also changes. Therefore, program behaviour might suffer inadvertently of modification as well, which it might result in data inaccuracy and consequently in incorrect analyses.
+    \item \textit{Potential data disruption}: time is not the only resource impacted when a software is augmented with new instructions. Memory usage also changes. Therefore, program behaviour may suffer inadvertently of modification as well, which may result in data inaccuracy and consequently in incorrect analyses.
 \end{enumerate}
-
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[scale=0.7]{Immagini/DiSL_Architecture.JPG} 
-    \caption{ShadowVM architecture at a high level.}
-    \label{fig:fig1}
-\end{figure}
 
 In order to mitigate these complications, DiSL offers the possibly to utilize the \textbf{Shadow VM}, which is an additional Java Virtual Machine, introduced to separate the process of gathering data, with the actual analysis. With this technology, instrumentation code snippets injected and run into the target application JVM, are responsible only for the collection of the needed information. Then, through the APIs offered by DiSL, this data is sent to the ShadowVM, where it is organized and analysed as desired. 
 
@@ -1051,7 +1033,26 @@ public boolean add(E e) {
 
 \chapter{Profiler}
 \large
-Profiler architecture is composed of three different JVMs running simultaneously and that communicates with one another. Firstly, the Target Application Server, where the software to be profiled runs. Then, the DiSL server, which is responsible for out of process bytecode instrumentation, thus, for intercepting specific events of the target application, and then for injecting them with the instrumentation code. Analysis data is collected inside the target application server, which then sends it to the ShadowVM: the server specifically designed for the analysis operations. It is used instead of injecting the target application with the analysis code, therefore reducing the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible data perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
+[DRAFT: aggiungere introduzione]
+
+\section{Architecture}
+
+Profiler architecture is composed of three different JVMs, running simultaneously and communicating with one another. Figure 4.1 showcases this division:
+\begin{itemize}
+    \item \textbf{Target Application Server} contains the instrumented base program and the instrumented JCL. It is augmented with the Java Virtual Machine Tool Interface (JVMTI) agent, a tool designed for inspecting the state and controlling the execution of Java applications, which is responsible for injecting the Observed JVM with the instrumented base program code. Collected data from profilation is then sent to the Analysis Server. 
+    \item \textbf{DiSL Server} is responsible for performing all bytecode instrumentation. Communication between Instrumentation JVM and Observed JVM agent is achieved via socket and bytecode is passed through it.
+    \item \textbf{Analysis Server} is called the ShadowVM and it is specifically designed for the analysis operations. Instead of injecting further instructions inside the target application, all the data manipulating analysis operation are performed in this JVM. Thus, improving profiler performance and reducing data perturbation.
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.7]{Immagini/DiSL_Architecture.JPG} 
+    \caption{ShadowVM architecture at a high level.}
+    \label{fig:fig1}
+\end{figure}
+
+\noindent
+Based on the architecture, we divide the design of our profiler into four main class modules:
 \begin{itemize}
     \item \textbf{Instrumentation classes}: they are responsible for defining the actual method's instrumentation code. They ask the DiSL server to intercept specified events occurring in the target applications and inject them with DiSL code snippets. For every method of interest, instrumentation increments a specific counter, that will be then sent to the analysis server by the Local classes.
     \item \textbf{Guard classes}: they are used inside Instrumentation classes and they are responsible for the selection of the instrumentation sites for each method of interest. They also implement the DiSL Reflection API technology, exploiting reflective information of the JCL.
@@ -1059,6 +1060,7 @@ Profiler architecture is composed of three different JVMs running simultaneously
     \item \textbf{Remote classes}: they are responsible for elaborating data collected from the profiling of the target application. They exploit ShadowVM technology, which is a separate virtual machine specifically designed for data analysis.
 \end{itemize}
 In the following chapters we discuss in depth the concepts just briefly introduced. 
+
 
 \section{Project Structure}
 Project code structure in divided following profiler modules partitioning (SCOLL, CCOLL, ELOCK, SYNCHRONIZERS, and FUTURE). Instrumentation and guard classes are further separated into main sub-topics (e.g. for the CCOLL module we divide them in BlockingQueue, ConcurrentMap, ConcurrentSkipListSet, CopyOnWriteArrayList, and CopyOnWriteArraySet). The latter division was made in order to produce code easier to read, and minimize class sizing. The final project code structure is the following:
