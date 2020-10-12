@@ -231,15 +231,19 @@ We decided to group this type of classes together in order to build a specific p
 
 
 \chapter{Analysis}
-In this chapter we discuss the process that we followed in order to create a selection of classes and methods onto which we ran the analysis. It is devided in 2 main sections. In the first one we explain the grouping and the class selection, while in the second one the method filtering for every selected class.
+In this chapter we discuss the process that we followed in order to derive a selection of classes and methods onto which we ran the analysis\ar{No, you don't run the analysis on it. Rather, you derive classes and methods of interest that will later be tracked by your profiler.}. It is divided in 2 main sections. In the first one we explain the grouping and the class selection, while in the second one the method filtering for every selected class.
 
 
 \section{Class Selection \& Grouping}
-The class selection process is necessarily deep rooted in the task that this profiler wants to achieve: analyse and profile concurrent libraries for the JCL. First of all, we researched what are the most popular frameworks used when programming in a concurrent environment. This operation involved a mix of searching the web and looking through manuals that tackle the topic. We achieved to collect the 5 main topics already  discussed in the background chapter: synchronized collections, concurrent collections, explicit locks, synchronizers, and future. After this first effort, we focused on the official Java documentation offered by Oracle, and for every group we gathered all the classes that we deemed to be suitable for the analysis. Then we arranged them in order to recreate the Java hierarchy. Operation that we purposely conducted to achieve proper documentation, but also to ease implementation and utilize the DiSL Reflection API. Further discussions on this topic will be expressed in detail in chapter 4. In the following pages we describe the classes choice group by group.
+The class selection process is necessarily deep rooted in the task that this profiler wants to achieve: analyse and profile concurrent libraries for the JCL. First of all, we researched what are the most popular frameworks used when programming in a concurrent environment. This operation involved a mix of searching the web and looking through manuals that tackle the topic. We achieved to collect the 5 main topics already  discussed in the background chapter: synchronized collections, concurrent collections, explicit locks, synchronizers, and future. After this first effort, we focused on the official Java documentation offered by Oracle, and for every group we gathered all the classes that we deemed to be suitable for the analysis. Then we arranged them in order to recreate the Java hierarchy.\ar{I don't totally understand this sentence. Recreate the hierarchy? I get the meaning, but it should be expressed better. You should mention that profiling interfaces has the benefit of reducing the instrumentation logic to write, because all subtypes will be automatically instrumented. Moreover, being the application logic defined at the interface level, instrumenting interfaces allows to detect also custom (user-made) classes implementing such interfaces} Operation that we purposely conducted to achieve proper documentation, but also to ease implementation and utilize the DiSL Reflection API. Further discussions on this topic will be expressed in detail in chapter 4
+\ar{Use labels and placeholder (the \ref command), chapter numbering may change in the future}. In the following pages we describe the classes chosen group by group.
+
+\ar{Clearly mention that this chapter lists the class/interfaces of interest that *you* deemed as falling in the scope of the profiler.}
 
 \subsection{Synchronized Collections}
-As previously discussed in the background chapter, the synchronized collections framework is an assortment of wrappers that ensures thread-safety when using standard collections in a concurrent environment. The structure is pretty straight-forward, with only one class offering several public and static methods to achieve synchronization: \textit{Collections}. From an outside perspective there are no practical differences when using synchronized collections rather than standard collections. However, if we take a look at the code, we can see that these synchronized collections are actually represented inside the Collections class as a list of static classes with default -or sometimes private- visibility. For this particular reason, they could be used inside applications, thus we decided to also profile them and the complete list of classes is the following:
+As previously discussed in the background chapter, the synchronized collections framework is an assortment of wrappers that ensures thread-safety when using standard collections in a concurrent environment. The structure is pretty straight-forward, with only one class offering several public and static methods to achieve synchronization: \textit{Collections}. From an outside perspective there are no practical differences when using synchronized collections rather than standard collections. However, if we take a look at the code, we can see that these synchronized collections are actually represented inside the Collections\ar{Properly format} class as a list of static classes with default -or sometimes private- visibility. For this particular reason, they could be used inside applications, thus we decided to also profile them and the complete list of classes is the following:
 
+\ar{I suggest to clearly indicate the package where such classes are defined. If all of them are defined in a single package, you can also avoid it in the list, but you have to explicitly mention its name in the text. }\ar{In this particular  case, please specify that all classes in a nested itemize environment are *inner classes* of the outer item (otherwise, the reader may interpret them as subypes). }
 \begin{itemize}
     \item Collections
     \begin{itemize}
@@ -254,11 +258,13 @@ As previously discussed in the background chapter, the synchronized collections 
     \end{itemize}
 \end{itemize}
 
+\ar{Please use proper style in the item list. (textit or texttt)}
 
 \subsection{Concurrent Collections}
-The concurrent collections framework is, as previously discussed in the background chapter, an extension of the \textit{Collection} framework provided by the \textit{java.util} package. It offers many new data structures adapted to work in a concurrent environment. It is structured on two main interfaces: BlockingQueue and ConcurrentMap. Both constructs are the synchronized version of the interfaces Queue and Map respectively, and both implement them. All the other constructs of the framework are either descending interfaces with specializing qualities (e.g. BlockingDeque, ConcurrentNavigableMap, etc.), or concrete classes implementation of the two main interfaces just discussed (e.g. ArrayBlockingQueue, ConcurrentHashMap, etc.).  In addition, there are three other classes that implement neither of the two main interfaces, nor descendant of them. They are the: CopyOnWriteArrayList representing a concurrent version of an List, and CopyOnWriteArraySet and ConcurrentSkipListSet representing two different ways to implement a concurrent version of a Set. 
+The concurrent collections framework is, as previously discussed in the background chapter, an extension of the \textit{Collection} framework provided by the \textit{java.util} package. It offers many new data structures adapted to work in a concurrent environment. It is structured on two main interfaces: BlockingQueue and ConcurrentMap\ar{Proper style, recurrent comment}. Both constructs are the synchronized version of the interfaces Queue and Map respectively, and both implement them. All the other constructs of the framework are either descending interfaces\ar{What is a descending interface?} with specializing qualities (e.g. BlockingDeque, ConcurrentNavigableMap, etc.), or concrete classes implementation of the two main interfaces just discussed (e.g. ArrayBlockingQueue, ConcurrentHashMap, etc.).  In addition, there are three other classes that implement neither of the two main interfaces, nor descendant of them. They are the: CopyOnWriteArrayList representing a concurrent version of a List, and CopyOnWriteArraySet and ConcurrentSkipListSet representing two different ways to implement a concurrent version of a Set. 
 
-The complete list of classes is the following:
+\ar{Please define the meaning of nesting and subnesting. Does it express covariance? Again, as mention above, also indicate package names, unless they are the same for the whole list}
+The complete list of classes \ar{and interfaces!} is the following:
 
 \begin{itemize}
     \item \textbf{Interfaces:}
@@ -305,11 +311,15 @@ The complete list of classes is the following:
     \end{itemize}
 \end{itemize}
 
+\ar{I don't get why you add to the list subtypes of interfaces. You should explicitly mention that the profiler will target such interfaces and *all* their subtypes, including those defined in the user code. It then becomes obvious that classes such as ConcurrentHashMap fall in the scope of the profiler. You should list (giving a reason) only classes that are not subtypes of the chosen interfaces.
+
+If you really want to list subtypes, then please mention very well that they are examples of the classes implementing such interfaces in a given Java version. However the list may change in the future, and the user can add extra classes, and they will also be instrumented, as long as they subclass a target interface.}
+
 
 \subsection{Explicit Locks}
-The explicit locks framework, as previously discussed in the background chapter, is a collection of constructs that allows to explicitly represent operations such as locking and waiting for condition. It is structured on thre main interfaces:
+The explicit locks framework, as previously discussed in the background chapter\ar{Provide an explicit chapter number, don't vaguely say "as discussed in the background chapter"}, is a collection of constructs\ar{classes} that allows to explicitly represent operations such as locking and waiting for condition. It is structured on three main interfaces:
 \begin{enumerate}
-    \item \textbf{Lock:} As the name suggests, this interface represents a lock, and offers several methods to grant thread-safety when accessing shared resources. Compared to the implicit locking structure utilized by the synchronized collections framework, it endows more flexibility, allowing locks to be acquired and released in separate scopes, and not in a block structured way.  
+    \item \textbf{Lock:}\ar{Be consistent in the style used for code.} As the name suggests, this interface represents a lock, and offers several methods to grant thread-safety when accessing shared resources. Compared to the implicit locking structure utilized by the synchronized collections framework, it endows more flexibility, allowing locks to be acquired and released in separate scopes, and not in a block-structured way.  
     \item \textbf{ReadWriteLock:} this interface represents a pair of locks designed to grant thread-safety while separating access operations on a shared resources: a lock is used for reading and the other one for writing. Compared to the Lock interface, that indistinctly allows exclusive access to the resource, ReadWriteLock grants multiple access when reading, while writing is still exclusive.
     \item \textbf{Condition:} When an explicit lock replaces the usage of synchronized blocks, this Condition interface is used in order to represent monitor methods (i.e. \textit{wait()}, \textit{notify()}, and \textit{notifyAll()}). Compared with the latter, conditions offer more flexible operations, such as the possibility to guarantee ordering of notification, or not having the necessity of holding a lock when performing notifications.
 \end{enumerate}
@@ -319,12 +329,12 @@ In addition to these three interfaces, and the two classes implementing them: Re
 
 \begin{enumerate}
     \item \textbf{AbstractOwnableSynchronizer:} It is an abstract class that offers a structure designed to be used to create custom synchronizes (e.g. semaphores, phasers, etc.). It could have been made part of the synchronizers module, but since it is found in the \newline \textit{java.util.concurrent.locks} package, and since it strongly makes use of locking structures, we opted for keeping it separate. 
-    \item \textbf{LockSupport:} As the name suggests, it a support class that facilitate the creation of locks and other synchronizations structures, providing basic thread blocking primitives. 
+    \item \textbf{LockSupport:} As the name suggests, it \ar{something is missing here}a support class that facilitates the creation of locks and other synchronizations structures, providing basic thread blocking primitives. 
     \item \textbf{StampedLock:} A capability-based lock class granting three methodologies for controlling access of shared resources: read, write, and optimistic reading. It doesn't implement neither of the two main lock interfaces previously discussed, rather it offers methods that create the possibility to be seen as either one of them.
 \end{enumerate}
 
 \noindent
-For the explicit locks framework we selected and organized the classes as follows:
+For the explicit locks framework we selected and organized the classes as follows: \ar{Same comment as above}
 
 \begin{itemize}
     \item \textbf{Interfaces:}
@@ -371,10 +381,10 @@ For the synchronizers framework we selected and organized the classes as follows
 \end{itemize}
 
 \subsection{Future}
-As previously discussed in the background chapter, the future frameworks provides constructs to encapsulate future results of heavy asynchronous operations, while allowing to continue execution of other operations. The main interface is Future, and exaclty represents this concept. Other constructs are descending interfaces or implementing classes of it.
+As previously discussed in the background chapter, the future frameworks provides constructs to encapsulate future results of heavy asynchronous operations\ar{Why heavy?}, while allowing to continue execution of other operations in the meantime. The main interface is Future, and exactly represents this concept\ar{I don't get the last part...}. Other constructs are descending interfaces\ar{?} or implementing classes of it.
 
 \noindent
-For the future framework we selected and organized the classes as follows:
+For the future framework we selected and organized the classes as follows: \ar{Same comment as above}. 
 
 \begin{itemize}
     \item \textbf{Interfaces:}
