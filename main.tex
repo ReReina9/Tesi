@@ -230,9 +230,8 @@ We decided to group this type of classes together in order to build a specific p
 
 
 
-\chapter{Analysis}
+\chapter{Analysis} \ar{I am not sure that "Analysis" is a good name for this chapter. "Analysis" could be misunderstood as the last action you do with the profiler (i.e., the evaluation). Maybe rename it in something like "Target classes and methods" or something that better conveys what you are doing here.} 
 In this chapter we discuss the process that we followed in order to derive a selection of classes and methods onto which we ran the analysis\ar{No, you don't run the analysis on it. Rather, you derive classes and methods of interest that will later be tracked by your profiler.}. It is divided in 2 main sections. In the first one we explain the grouping and the class selection, while in the second one the method filtering for every selected class.
-
 
 \section{Class Selection \& Grouping}
 The class selection process is necessarily deep rooted in the task that this profiler wants to achieve: analyse and profile concurrent libraries for the JCL. First of all, we researched what are the most popular frameworks used when programming in a concurrent environment. This operation involved a mix of searching the web and looking through manuals that tackle the topic. We achieved to collect the 5 main topics already  discussed in the background chapter: synchronized collections, concurrent collections, explicit locks, synchronizers, and future. After this first effort, we focused on the official Java documentation offered by Oracle, and for every group we gathered all the classes that we deemed to be suitable for the analysis. Then we arranged them in order to recreate the Java hierarchy.\ar{I don't totally understand this sentence. Recreate the hierarchy? I get the meaning, but it should be expressed better. You should mention that profiling interfaces has the benefit of reducing the instrumentation logic to write, because all subtypes will be automatically instrumented. Moreover, being the application logic defined at the interface level, instrumenting interfaces allows to detect also custom (user-made) classes implementing such interfaces} Operation that we purposely conducted to achieve proper documentation, but also to ease implementation and utilize the DiSL Reflection API. Further discussions on this topic will be expressed in detail in chapter 4
@@ -418,7 +417,11 @@ After collecting all the necessary classes for the analysis, our focus then shif
     \item Blindly analyse all methods offered by the chosen classes.
     \item Select a smaller, significant group of methods.
 \end{enumerate}
- The first option would have made the analysis phase a lot faster, basically skipping methods selection completely. However the profiler weight would have been significant, and when run onto target applications, it would have resulted in poorer performance and heavier overhead. In addition, implementation phase would have been more time consuming. On the contrary, with the second option, we would have had to invest a lot more time and effort into the analysis phase, yet earning a better performing profiler. We analysed pros and cons of both options and our choice was made once again reflecting on the reasoning behind the tool: to give programmers a realistic look inside the concurrent aspect of the JCL, offering useful information about the usage of those libraries. In our opinion, it would have been pointless to provide data on every single method, when a significant group of them are typically not used, or bring little, to no information at all. Especially when at the expenses of the performance. For this particular reason we decided to go with the second option.
+ The first option would have made the analysis phase a lot faster, basically skipping methods selection completely. However the profiler weight\ar{What is the profiler weight} would have been significant, and when run onto target applications, it would have resulted in poorer performance and heavier overhead.\ar{What is the difference between performance and overhead? They are equivalent concepts to me} In addition, the implementation phase would have been more time consuming. On the contrary, with the second option, we would have had to invest a lot more time and effort into the analysis phase, yet earning a better performing profiler. We analysed pros and cons of both options and our choice was made once again reflecting on the reasoning behind the tool: to give programmers a realistic look inside concurrent aspects of the JCL, offering useful information about the usage of those libraries. In our opinion, it would have been pointless to provide data on every single method, when a significant group of them are typically not used, or bring little, to no information at all. Especially when at the expenses of the performance. For this particular reason we decided to go with the second option.
+ 
+ \ar{Another important reason (at least in my opinion) is to reduce the complexity of the profiles resulting from the profiler: less but highly important data means easier interpretation.}
+ 
+ \ar{Please mention explicitly that the goal of the profiler is to detect the usage of such methods and the frequency that they are used. This is not properly said earlier. }
  
 \subsection{Filtering Criteria}
  Method selection occupies a prominent portion of the analysis phase. The goal of this process is to select the right amount of methods, preventing overfilling, while still achieving a successful filtering, thus avoiding to leave out fundamental operations. To achieve this task, we based method selection on two main criteria:
@@ -435,14 +438,15 @@ After collecting all the necessary classes for the analysis, our focus then shif
  \end{itemize}
  \noindent
  Examples of methods we decided to leave out from the final listing are: \textit{toString()}, \textit{containsKey}, \textit{hashCode}, \textit{isEmpty()}, and \textit{size()}. Thus, all methods that return information on the state or content of the structures, besides getters.
+ \ar{Maybe mention that methods such as isEmpty or size are not even that much useful in concurrent collections, since they are approximate (remember what we mentioned in the AJP class}
  
  
- \subsection{Methods Grouping}
- In order to understand the reasoning behind this section, it is important to also know what the final product of running the profiler onto target applications will look like. Further and more detailed explanations will be done in the following chapters. When run, the tool will produce in output data, in the form of counters, for every selected method.
+ \subsection{Method Grouping}
+ In order to understand the reasoning behind this section, it is important to also know what the final product\ar{output?} of running the profiler onto target applications will look like. Further and more detailed explanations will be done in the following chapters. When run, the tool will produce in output data, in the form of counters, for every selected method.\ar{You have to explicitly mention what the output will be. BTW, the correct name of the output is "profile" or "trace".}
  
  In order to provide a useful analysis and to simplify reading of the final product produced by the profiler, we decided to merge together particular methods. The process followed two main criteria:
  \begin{itemize}
-     \item \textbf{Overloading methods: }all the methods with the same name, but different attributes. For example, methods such as:
+     \item \textbf{Overloading methods: }all the methods with the same name, but different attributes\ar{parameters}. For example, methods such as:
      \begin{itemize}
          \item boolean offer(E e)
          \item boolean offer(E e, long timeout, TimeUnit unit)
@@ -460,13 +464,16 @@ After collecting all the necessary classes for the analysis, our focus then shif
          \item static void parkUntil(Object blocker, long deadline)
      \end{itemize}
      We made the choice to merge all these methods in only one counter for the same reason as before. We aimed to build a profiler that provides information of what method is being used, and not the specific type of implementation.
+     
+     \ar{An important information is missing: how did you determine the version of the method to instrument? It is important to specify so because you have to look at the implementation to see which method does not call any other variant. Otherwise it looks like you made a random choice :)
+     
  \end{itemize}
  
  \noindent
  It is important to mention that methods that achieve the same results, but are conceptually slightly different (e.g. \textit{put()} and \textit{add()} of the \textit{BlockingQueue} interface) were not merged together. The reasoning behind this choice is actually the same as before: we aimed to build a profiler that provides information of what method is being used. Even though one could argue that this choice could increase redundancy of information, merging this kind of methods would have made -in our opinion- the analysis too generic, thus not actually useful.
  
  \subsection{Nested Methods}
- Another aspect that will be further explored in the following chapters, that however impacted the analysis, is the nested methods concept. For every method of interest, we had to look at the official implementation, and check if other methods of interest were used inside of them.
+ Another aspect that will be further explored in the following chapters, that however impacted the analysis, is the concept of \emph{nested methods}. For every method of interest, we had to look at the official implementation, and check if other methods of interest were used inside of them.
  
  \noindent
  An example of this concept is represented in the following code:
@@ -478,7 +485,7 @@ public boolean add(E e) {
 \end{minted}
 
 \noindent
- It is the implementation of the method \textit{add} of the \textit{CopyOnWriteArraySet} class. It uses the \textit{addIfAbsent} method of the same class (line 2), which is also part of the analysis. This poses a problem since, during the profiling of targets applications, every time an \textit{add} method would be instrumented, the \textit{addIfAbsent} method would be as well, invalidating final results. Solution and further explanation of this issue are discussed in the implementation chapter, but in order to check if the solution was actually working, we had also to draw up a list of nested methods during the analysis.
+The above code reports the implementation of method \textit{add} defined by the \textit{CopyOnWriteArraySet} class. It uses the \textit{addIfAbsent} method of the same class (line 2), which is also part of the analysis. This poses a problem since, during the profiling of targets applications, every time an \textit{add} method would be instrumented, the \textit{addIfAbsent} method would be as well, invalidating final results. Solution and further explanation of this issue are discussed in the implementation chapter, but in order to check if the solution was actually working, we had also to draw up a list of nested methods during the analysis.
  
  \noindent
  It is important to mention that nested methods refer only to method of the same module.
@@ -487,6 +494,8 @@ public boolean add(E e) {
  Here we list all the method of interest selected for the analysis divided by module and class. Methods grouped together are specified in the same list element, while nested methods are represented with the $\Rightarrow$ symbol under the implementing method.
  
 \subsubsection{Synchronized Collections}
+
+\ar{Same comment on the style}
 
 \small{
 \noindent
@@ -1081,6 +1090,11 @@ public boolean add(E e) {
     \mbox{}\\ static <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier, Executor executor)
 \end{itemize}
 }
+
+
+\ar{After seeing the above list, it makes even more sense to remove classes (not interfaces) from sect 3.1, unless you instrument methods defined in such classes not defined in interfaces.}
+
+\ar{Let's discuss privately about nested and grouped methods, I think the separation between them is not clear (also to you) and needs extra discussion.}
 
 \chapter{Profiler}
 \large
