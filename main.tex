@@ -1039,22 +1039,22 @@ public boolean add(E e) {
 
 Profiler architecture is composed of three different JVMs, running simultaneously and communicating with one another. Figure 4.1 showcases this division:
 \begin{itemize}
-    \item \textbf{Target Application Server} contains the instrumented base program and the instrumented JCL. It is augmented with the Java Virtual Machine Tool Interface (JVMTI) agent, a tool designed for inspecting the state and controlling the execution of Java applications, which is responsible for injecting the Observed JVM with the instrumented base program code. Collected data from profilation is then sent to the Analysis Server. 
-    \item \textbf{DiSL Server} is responsible for performing all bytecode instrumentation. Communication between Instrumentation JVM and Observed JVM agent is achieved via socket and bytecode is passed through it.
-    \item \textbf{Analysis Server} is called the ShadowVM and it is specifically designed for the analysis operations. Instead of injecting further instructions inside the target application, all the data manipulating analysis operation are performed in this JVM. Thus, improving profiler performance and reducing data perturbation.
+    \item \textbf{Target Application Server} \ar{Is not a server} contains the instrumented base program and the instrumented JCL. It is augmented with the Java Virtual Machine Tool Interface (JVMTI) agent, a tool designed for inspecting the state and controlling the execution of Java applications, which is responsible for injecting the Observed JVM with the instrumented base program code. Collected data from profiling is then sent to the Analysis Server. \ar{You should mention that this is the standard target application. It does not contain the instrumented JCL, simply it will contain modified classes (after loading) according to the instrumentation logic in the Instr. server} \ar{What is the Event API? It is not defined.} \ar{Please make sure to clearly define all components in the figure, or remove components not shown.}
+    \item \textbf{DiSL Server} is responsible for performing all bytecode instrumentation. Communication between Instrumentation JVM and Observed JVM agent is achieved via socket and bytecode is passed through it. \ar{Same comment here. What is the instr. framework?}
+    \item \textbf{Analysis Server} is called the ShadowVM \ar{It uses the ShadowVM, is not called like that} and it is specifically designed for the analysis operations. Instead of injecting further instructions inside the target application, all the data manipulating analysis operation are performed in this JVM. Thus, improving profiler performance and reducing data perturbation. \ar{Due to the comments above I would remove the Shadow API}
 \end{itemize}
 
 \begin{figure}
     \centering
     \includegraphics[scale=0.7]{Immagini/DiSL_Architecture.JPG} 
-    \caption{ShadowVM architecture at a high level.}
+    \caption{ShadowVM architecture at a high level. \ar{No, it's the profiler architecture, not the ShadowVM architecture}}
     \label{fig:fig1}
 \end{figure}
 
 \noindent
 Based on the architecture, we divide the design of our profiler into four main class modules:
 \begin{itemize}
-    \item \textbf{Instrumentation classes}: they are responsible for defining the actual method's instrumentation code. They ask the DiSL server to intercept specified events occurring in the target applications and inject them with DiSL code snippets. For every method of interest, instrumentation increments a specific counter, that will be then sent to the analysis server by the Local classes.
+    \item \textbf{Instrumentation classes}: they are responsible for defining the actual method's instrumentation code.\ar{Not only of the actual. All instrumentations that should be inserted} They ask \sr{They specify something, don't ask something} the DiSL server to intercept specified events occurring in the target applications and inject them with DiSL code snippets. For every method of interest, instrumentation increments a specific counter, that will be then sent to the analysis server by the Local classes.
     \item \textbf{Guard classes}: they are used inside Instrumentation classes and they are responsible for the selection of the instrumentation sites for each method of interest. They also implement the DiSL Reflection API technology, exploiting reflective information of the JCL.
     \item \textbf{Local classes}: they implement the profiler inside the target application, collecting instrumented data gathered by the Instrumentation classes, in order to then send them to the analysis server.
     \item \textbf{Remote classes}: they are responsible for elaborating data collected from the profiling of the target application. They exploit ShadowVM technology, which is a separate virtual machine specifically designed for data analysis.
@@ -1178,9 +1178,9 @@ public static void beforeBQAdd(DynamicContext dc, MethodStaticContext msc) {
 This code snippet increments a counter before every call of an \textit{add} method of the class \textit{BlockingQueue} happens. More specifically it injects inside the target application bytecode, an instruction (line 13) that increments the related counter for the \textit{add} method. Let's analyse this code line per line:
 
 \begin{itemize}
-    \item \textbf{line 2}: A specific counter for the method \textit{add} of the class \textit{BlockingQueue} is declared and initialized at zero. It is private since we want to ensure access only inside the class. It is static since we want to ensure to have the same value whatever object instance and instrumentation snippet is accessing it. And finally, volatile, so that it will be saved and accessed through memory, thereby improving thread-safety. 
+    \item \textbf{line 2}: A specific counter for the method \textit{add} of the class \textit{BlockingQueue} is declared and initialized at zero. It is private since we want to ensure access only inside the class. It is static since we want to ensure to have the same value whatever object instance and instrumentation snippet is accessing it. And finally, volatile, so that it will be saved and accessed through memory, thereby improving thread-safety. \ar{It is thread-local, so in principle it may also not be volatile. It is declared as volatile for a more complex reason, that has to do will callbacks, that I won't explain here. You can remove "volatile".}
     
-    \item \textbf{Line 1}: This command is part of the \textit{annotations} construct offered by DiSL. It indicates that the access to the variable below (line 2) should be translated as an access to a Thread-Local variable.
+    \item \textbf{Line 1}: This command is part of the \textit{annotations} construct offered by DiSL. It indicates that the access to the variable below (line 2) should be translated as an access to a Thread-Local variable.\ar{Explain what TL means.}
     
     \item \textbf{Line 8}: It represents the instrumentation site (discussed in the background chapter). It is formed by two main entities:
     \begin{itemize}
@@ -1195,7 +1195,7 @@ This code snippet increments a counter before every call of an \textit{add} meth
         \item MethodStaticContext: Object that provides information only available to the code snippet at compile-time, about the instrumented method.
     \end{itemize}
     
-    \item \textbf{Line 10}: It is the first instruction of the instrumentation code, which means that from this line to the 15Th, this instructions will be injected as bytecode inside the target applications. This particular one represents a check on the instrumented method signature. Using the \textit{MethodStaticContext} object, it queries the method name and descriptor, and then it checks if they are equals to the ones of method \textit{add}.
+    \item \textbf{Line 10}: It is the first instruction of the instrumentation code, which means that from this line to the 15th, this instructions will be injected as bytecode inside the target applications. This particular one represents a check on the instrumented method signature. Using the \textit{MethodStaticContext} object, it queries the method name and descriptor, and then it checks if they are equals to the ones of method \textit{add}.
     
     \item \textbf{Line 11}: This instruction takes advantage of the \textit{DynamicContext} Object in order to obtain the instance of the class of the instrumented method, and then to assign it to the Object named \textit{thisInstance}.
     
@@ -1231,7 +1231,7 @@ public class Guard{
 \vspace*{0.5cm}
 
 \noindent
-Following DiSL criteria, guards need to be declared in separate classes, and they also need to be final and static. In order to prevent inizialitation, the constructor is set private and left empty. For the other instructions, let's analyse them line by line:
+Following DiSL criteria, guards need to be declared in separate classes, and they also need to be final and static. In order to prevent inizialization, the constructor is set private and left empty. For the other instructions, let's analyse them line by line:
 
 
 \begin{itemize}
@@ -1284,7 +1284,7 @@ With this method we can achieve two benefits:
 Further explanations on specific guard implementation for this profiler will be discussed in the following chapter. It was however necessary to introduce this concept to fully understand following Instrumentation code.
 
 \subsection{Nested Methods}
-The example just provided does not take in consideration the concept of nested methods, already discussed in the analysis chapter (chapter 3). For "nested methods" we refer to all the methods of interest that are called inside the implementation of other methods of interest. When profiling target applications with the instrumentation code just described in the previous example, we would be counting all the methods of interest. However, profiling would be automatically extended to the nested methods as well. For example, the \textit{add} method of class \textit{CopyOnWriteArraySet} calls -inside its implementation- the \textit{addIfAbsent} method, which is also part of the methods of interest list:
+The example just provided does not take in consideration the concept of nested methods, already discussed in the analysis chapter (Chapter 3). For "nested methods" we refer to all the methods of interest that are called inside the implementation of other methods of interest. When profiling target applications with the instrumentation code just described in the previous example, we would be counting all the methods of interest. However, profiling would be automatically extended to the nested methods as well. For example, the \textit{add} method of class \textit{CopyOnWriteArraySet} calls -inside its implementation- the \textit{addIfAbsent} method, which is also part of the methods of interest list:
 
 \begin{minted}[linenos]{java}
 public boolean add(E e) {
@@ -1293,7 +1293,7 @@ public boolean add(E e) {
 \end{minted}
 
 \noindent
-With the instrumentation code example previously provided, we would be increasing frequency counters for both methods. This is not necessarily an error, since the \textit{addIfAbsent} method is actually being executed. However, with this profiler, we want to gather information about active method usage only. Thereby, we had to figure out a way to avoid instrumentation of nested methods. The approach we came up with is described in the following example:
+With the instrumentation code example previously provided, we would be increasing frequency counters for both methods. This is not necessarily an error, since the \textit{addIfAbsent} method is actually being executed. However, with this profiler, we want to gather information about active method usage only.\ar{That's not the reason: you want to analyze only usages by user code, not library code. Also, this is a design choice: not doing so would still be valid.}  Thereby, we had to figure out a way to avoid instrumentation of nested methods. The approach we came up with is described in the following example:
 
 
 
@@ -1337,6 +1337,8 @@ Compared with the previous basic example, additions to the code can be summarize
     \item \textbf{Before Snippet Behaviour}: we chanced the behaviours of the snippet marked with the \textit{@Before} annotation. Instead on incrementing the specific method counter, we now increment the global one. [Line 16]
     \item \textbf{@After Annotation}: After the \textit{@Before} annotation, we also added an instrumentation snippet marked with an \textit{@After} annotation. This means that the code specified inside this snippet will be injected after the last instruction of the target method. Here, we decrease the global counter by 1, then check if the latter is equals to 0, in which case we increment the specific method counter. [Lines 19-24]
 \end{itemize}
+
+\ar{I am writing the comment here even if applies to all TL variables: the fact that they are thread-local is important, because a concurrent applications need to access/modify such variable often. With TL no synchronization is required. That is one of the reason that makes the overhead low. So please stress this concept.} 
 
 \noindent
 With this approach, all the \textit{@Before} snippets are executed before the ones marked with the \textit{@After} annotation. So, when accessing the first method, ergo the method of interest, if no nested methods are present, then simply the global counter is decremented, and the specific method counter increased by one. However, if any nested methods are present, global counter is again incremented by one (or more, depending on the number of nested methods), reaching value equals to 2 (or more). But then, when accessing the after snippet, the global counter is decremented, reaching value equals to 1, and the checks on it then do not pass, leaving the specific nested method counter still equals to zero. Only the counter for the method of interest is incremented, after global counter reaches value 0. So, taking in consideration the example of instrumenting method \textit{add} of class \textit{CopyOnWriteArraySet} we generate the following computation:
@@ -1393,7 +1395,7 @@ It uses guards that exploits DiSL Reflection API to check for Thread execution. 
 In order to understand guards implementation, it is firstly necessary to expand on the concept of DiSL Reflection API, already introduced in the background chapter (chapter 2).
 
 \subsection{DiSL Reflection API}
-According to the explanations of instrumentation code provided in the previous chapter (chapter 3), we are now able to instrument all methods of interest, one by one. However, most of them are inherited from parent classes, or are themselves methods of super classes to be inherited. For example, let's follow the one provided in the previous chapter (chapter 3), where we presented the code instrumentation for method \textit{add} of interface \textit{BlockingQueue}. This method is inherited in the following sub-classes and sub-interfaces: 
+According to the explanations of instrumentation code provided in the previous chapter (chapter \ar{Chapter, not chapter. recurring comment} 3), we are now able to instrument all methods of interest, one by one. However, most of them are inherited from parent classes, or are themselves methods of super classes \ar{supertypes = superclasses or superinterfaces. Please use "supertypes", it's the correct word} to be inherited. For example, let's follow the one provided in the previous chapter (chapter 3), where we presented the code instrumentation for method \textit{add} of interface \textit{BlockingQueue}. This method is inherited in the following sub-classes and sub-interfaces:  \ar{Again, mention that they come from the current  JCL. User code may extend them, as well as future versions of the JCL. Otherwise the obvious question would be: "Couldn't you specify all such classes in the guard rather than using the DiSL Refl API?"}
 \begin{itemize}
     \item BlockingDeque<E>
     \item TransferQueue<E>
@@ -1434,15 +1436,18 @@ public static void afterBQAddFail(DynamicContext dc, MethodStaticContext msc) {
 \vspace*{0.5cm}
 
 \noindent
-As already seen in the previous chapter (chapter 3), we could place the static checks inside a separate guard (lines 3 and 13) and produce cleaner and better performing code. Dynamic checks (lines 4, 5, 14, 15), however, would still be left inside instrumentation code. This represents a huge problem, since they are very expensive in terms of performance, and, when injected inside the target application, raise the overhead quite a lot.
+As already seen in the previous chapter (chapter 3), we could place the static checks inside a separate guard (lines 3 and 13) and produce cleaner and better performing code. Dynamic checks (lines 4, 5, 14, 15), however, would still be left inside instrumentation code. This represents a huge problem, since they are very expensive in terms of performance, and, when injected inside the target application, raise the overhead quite a lot. \ar{Please cite the paper on the DiSL Reflection API, that shows actually the difference in terms of overhead}
 
 \noindent
-\textbf{DiSL Reflection API} solves this problem, providing reflective information for classes of the JCL. It works by preprocessing the entire class hierarchy of the JCL, before running the JVM. These information are stored and made accessible through \textit{ReflectionStaticContext} objects as static contexts, thus accessible by guards. This operation is quite expensive in terms of execution time, however the perks are multiple:
+\textbf{DiSL Reflection API} solves this problem, providing reflective information for classes of the JCL. It works by preprocessing the entire class hierarchy of the JCL, before running the JVM.\ar{Again, that is not che case} These information are stored and made accessible through \textit{ReflectionStaticContext} objects as static contexts, thus accessible by guards. This operation is quite expensive in terms of execution time, however the perks are multiple:
 \begin{itemize}
-    \item \textbf{Better profiling performance}: Since preprocessing of the JCL hierarchy is performed before the actual profiling analysis starts, the latter will not be affected however long it will take to conclude gathering of reflective information. Rather, removing dynamic checks improves profiling performance considerably.
-    \item \textbf{Necessity to be run only once}: Once the JVM has been preprocessed, reflective information are stored indefinitely, and -unless we actively remove them- the profiler will be able to access them, without ever having to run the analysis again.
-    \item \textbf{Cleaner Instrumentation Code}: Since reflective information can now be accessed through guards, instrumentation code snippets can be used exclusively to implement operational behaviours, leaving instrumentation site checks out, improving separation of concerns.
+    \item \textbf{Better profiling performance}: Since preprocessing of the JCL hierarchy is performed before the actual profiling analysis starts, the latter will not be affected however long it will take to conclude gathering of reflective information. Rather, removing dynamic checks improves profiling performance considerably. 
+    \item \textbf{Necessity to be run only once}: Once the JVM has been preprocessed, reflective information are stored indefinitely, and -unless we actively remove them- the profiler will be able to access them, without ever having to run the analysis again. \ar{This and the above items don't hold, since preprocessing is only a corner case.}
+    \item \textbf{Cleaner Instrumentation Code}: Since reflective information can now be accessed through guards, instrumentation code snippets can be used exclusively to implement operational behaviours, leaving instrumentation site checks out, improving separation of concerns. 
 \end{itemize}
+\ar{Most importantly, *any* class loaded in the future would have their reflective supertype information loaded in the DiSL Server, so you will be able to instrument all subtypes. }
+\ar{Please don't oversell the API. It DOES NOT allow FULL reflective information, only reflective supertype information. Please refer to the paper. }
+
 Therefore, even though gathering of reflective information will take quite a lot of time, it will only benefits the profiler performances and code structure. 
 
 \vspace*{0.5cm}
@@ -1480,10 +1485,12 @@ public static void afterBQAddMethod() {
 \vspace*{0.5cm}
 Instrumentation code snippets implements only the profiler operation logic (lines 16, 21, 22, and 23) leaving the instrumentation sites checks to the guards.
 
+\ar{It is better to discuss about the Refl. API privately, this section needs to be changed.}
+
 \subsection{Preprocessor Set-Up}
 In order to set-up preprocessing of the JCL with the methods and classes of interest, several steps are necessary:
 \begin{enumerate}
-    \item \textbf{White-Lists}: first of all, we need to provide the profiler with the list of methods of interest. In order to do so, we created, in a folder called \textit{preprocesser}, another folder called \textit{input}, where we inserted standard text documents (\textit{.txt} format), every one of them containing the full method name of the corresponding method of interest. These files are called \textit{white-lists}, and they are used during preprosessing to match all the classes that are subtypes of the specified class with the specified method.
+    \item \textbf{White-Lists}: first of all, we need to provide the profiler with the list of methods of interest. In order to do so, we created, in a folder called \textit{preprocesser}, another folder called \textit{input}, where we inserted standard text documents (\textit{.txt} format), every one of them containing the full method name of the corresponding method of interest. These files are called \textit{white-lists}, and they are used during preprocessing to match all the classes that are subtypes of the specified class with the specified method.
     \vspace{0.5cm}
     \begin{figure}[h]
         \centering
@@ -1493,7 +1500,7 @@ In order to set-up preprocessing of the JCL with the methods and classes of inte
     \end{figure}
     \vspace{0.5cm}
     \newline In the example in figure 4.1, we represent the white-list for method \textit{add} of class \textit{BlockingQueue}. Therefore, every subclass of \textit{BlockingQueue} of package \textit{java.util.concurrent}, implementing a method name \textit{add}, receiving in input an \textit{Object} and returning a \textit{boolean}, will be added to the analysis.
-    \newline Every white-list corresponds to a method usage frequency counter produced by the profiler after the analysis is completed. For counters made of multiple methods, the corresponding white-list needs to be written specifying every single method. So, for example, figure 4.2 represents the white-list for the methods \textit{V remove(Object key)} and \textit{boolean remove(Object key, Object value)} of class \textit{SynchronizedMap} that we decided to merge in a single counter. The preprocessor will match every subtype of class \textit{SynchronizedMap} that implements both methods.
+    \newline Every white-list corresponds to a method usage frequency counter produced by the profiler after the analysis is completed. \ar{That's not entirely true: you would use the API only if you need to instrument methods called by all subtypes of a given class. If the method is static, you won't  use it.} For counters made of multiple methods, the corresponding white-list needs to be written specifying every single method. So, for example, figure 4.2 represents the white-list for the methods \textit{V remove(Object key)} and \textit{boolean remove(Object key, Object value)} of class \textit{SynchronizedMap} that we decided to merge in a single counter. The preprocessor will match every subtype of class \textit{SynchronizedMap} that implements both methods.
     \vspace{0.5cm}
     \begin{figure}[h]
         \centering
@@ -1503,11 +1510,11 @@ In order to set-up preprocessing of the JCL with the methods and classes of inte
     \end{figure}
     \vspace{0.5cm}
     \item \textbf{Black-Lists}: Opposed to the white-lists, there are the \textit{black-lists}. For every counter, it is possible to specify inside separate standard text documents lists of methods not to be profiled, representing an exception on the ones inserted inside the white-lists. In this case we didn't need any of these, so we left the documents blank.
-    \item \textbf{Preprosessor script modification}: For every inserted white and black list, the preprosessor scripts need to be updated with the new information. In particular the bash file \textit{preprocess.sh} which is responsible for collecting information inserted inside the white and black lists. It then forwards them to the \textit{do\_preprocess.sh} script. In the latter, the actual preprocessing operations are described. We will not explain in detail the scripting operations, since their not part of the project workload developed for this thesis dissertation. However, we deem useful to mention them for contextual reference.
-\end{enumerate}
+    \item \textbf{Preprocessor script modification}: For every inserted white and black list, the preprocessor scripts need to be updated with the new information. In particular the bash file \textit{preprocess.sh} which is responsible for collecting information inserted inside the white and black lists. It then forwards them to the \textit{do\_preprocess.sh} script. In the latter, the actual preprocessing operations are described. We will not explain in detail the scripting operations, since their not part of the project workload developed for this thesis dissertation. However, we deem useful to mention them for contextual reference. \ar{I would remove this part. The scripts are implementation details provided by an existing profiler (concprof). You would not need them (or you would need to implement them from scratch) had you not concprof available.}
+\end{enumerate} 
 
 \subsection{Preprocessing Results}
-When starting the profiler, the preprocessor will run automatically (if not already done previously). The output of the preprocessor will be the list of methods of interest generated from the ones specified in the white-lists file. Following the example described in figure 4.2, after running the will be generated. The content of this file is described in figure 4.3, and it represent the full name for both \textit{remove} methods specified in the white-list file, for class \textit{SynchronizedMap} and inheriting classes. Specifically:
+When starting the profiler, the preprocessor will run automatically (if not already done previously). The output of the preprocessor will be the list of methods of interest generated from the ones specified in the white-lists file. Following the example described in figure 4.2\ar{Figure 4.2, not figure 4.2, recurring comment}, after running the will be generated\ar{I think there is a missing word here}. The content of this file is described in figure 4.3, and it represent the full name for both \textit{remove} methods specified in the white-list file, for class \textit{SynchronizedMap} and inheriting classes. Specifically:
 \begin{itemize}
     \item V remove(Object key) for class SynchronizedMap
     \item boolean remove(Object key, Object value) for class SynchronizedMap
@@ -1531,6 +1538,8 @@ When starting the profiler, the preprocessor will run automatically (if not alre
 \noindent
 Every time one of these method will be used during profiling by the target application, the corresponding instrumentation will be triggered, increasing the respective method usage frequency counter.
 
+\ar{This is the list of methods/classes to be instrumented ONLY inside the JCL. User methods/classes are of course not known, so the list is not exaustive.}
+ 
 \subsection{Guards Implementation}
 Guards implementation that exploits DiSL Reflection API it's pretty straight forward. Let's analyse the corresponding code for method \textit{add} of class \textit{BlockingQueue}:
 
@@ -1596,7 +1605,7 @@ The same implementation is repeated for every single method that takes advantage
 
 
 \subsection{Guards Implementation without DiSL Reflection API}
-We just described how to implement guards for methods of interest of which profiling exploits the DiSL Reflection API. However, this technology is not useful for every method of interest. In fact, there are methods that cannot be overridden by other classes: static methods. They are not polymorphic, thus statically linked at compile time. This makes usage of reflective information useless, and for this particular reason, also guards implementation changes. Let's analyse an example for static method \textit{synchronizedCollection} of class Collections:
+We just described how to implement guards for methods of interest of which profiling exploits the DiSL Reflection API. However, this technology is not useful for every method of interest. In fact, there are methods that cannot be overridden by other classes: static methods.\ar{Well, that's not true. Static methods are not *inherited*} They are not polymorphic, thus statically linked at compile time. This makes usage of reflective information useless, and for this particular reason, also guards implementation changes. Let's analyse an example for static method \textit{synchronizedCollection} of class Collections:
 
 
 \vspace*{0.5cm}
@@ -1709,8 +1718,9 @@ private static final short registerThreadStartID = REDispatch.registerMethod(MET
 private static final short registerThreadEndID = REDispatch.registerMethod(METHOD_PREFIX 
                                                                         + "registerThreadEnd");
 private static final short registerMetricID = REDispatch.registerMethod(METHOD_PREFIX 
-                                                                            + "registerMetric");
+                                                                            + "registerMetric"); 
     \end{minted}
+    
         \vspace*{0.25cm}
         \item \textbf{Thread start registration and data dispatch}: The starting thread is added to the active threads list (line 2). Then, through REDispatch, the necessary thread data is sent to the ShadowVM (line 3, and lines 6-14):
         \vspace*{0.25cm}
@@ -1791,7 +1801,7 @@ private static final short registerIterationID = REDispatch.registerMethod(METHO
                                                                 + "registerIterationStart");
     \end{minted}
     \vspace*{0.25cm}
-    \item \textbf{Benchmark iteration start}: before a new benchmark iteration starts, we firstly add the current thread to the active threads list (line 2). Then, for every thread inside of it -which are thread not yet terminated-, we send to the analysis server all the collected metrics (lines 4-6). Finally, we report the the Shadow VM that a new benchmark iteration is starting (line 8, and line 11-15):
+    \item \textbf{Benchmark iteration start}: before a new benchmark iteration starts, we firstly add the current thread to the active threads list (line 2). Then, for every thread inside of it -which are thread not yet terminated- we send to the analysis server all the collected metrics (lines 4-6). Finally, we report the the Shadow VM that a new benchmark iteration is starting (line 8, and line 11-15):
     \vspace*{0.25cm}
         \begin{minted}[fontsize=\footnotesize, linenos]{java}
 public static synchronized void beforeIteration() {
@@ -1816,8 +1826,13 @@ private static void __registerIterationNumber(int iteration) {
 \end{itemize}
 
 
+\ar{Please stress the importance of sending the metrics at the end of each thread and iteration. We want per-iteration data. We store them in TL variable due to performance, but then we would lose them if we did not send to the shadowVM upon thread termination.}
+
 \section{Remote}
-In the Remote classes we receive data collected and sent by the Local classes. They run onto a seperate JVM, the Shadow VM, which represents the analysis server of the profiler. Here, gathered information are organized and printed inside the two following matrix files:
+In the Remote classes we receive data collected and sent by the Local classes. They run onto a separate JVM, the Shadow VM, which represents the analysis server of the profiler. Here, gathered information are organized and printed inside the two following matrix files:
+
+\ar{You have to write that the profiler can target benchmark-like applications that separate the workload into multiple iterations. Otherwise the text below does not make much sense.}
+
 \begin{itemize}
     \item \textit{metrics.csv}: this file contains the information collected during the analysis, regarding methods usage frequency. Each frequency counter has its corresponding data, divided by benchmark iteration. Iterations represented by positive numbers refers to findings collected during the execution of an iteration, while negatives represents data collected between iterations.
     
@@ -2081,7 +2096,7 @@ public void registerMetric(final int threadID, final ShadowString fieldName, fin
     \vspace*{0.25cm}
     
     \subsubsection{Printing}
-    Once the profiling analysis terminates, the collected data need to be printed inside the two matrices files. In order to achieve this task, we take advantage of the method \textit{atExit}. It is inherited from the \textit{RemoteAnalysis} abstract class, and activated automatically at profiling termination. We override it, implementing it with the printing functionalities of class CSVDumper: class designed to dump metrics in a single CSV file, where each metric is printed in columns separated by a comma, on a single row. However, before printing the matrix for methods usage frequency, we need to sum every single thread value, in order to achieve only benchmark iteration separation between freequency counters. This task is achieved by the \textit{\_\_computePerIterMetricProfiles} method:
+    Once the profiling analysis terminates, the collected data need to be printed inside the two matrices files.  In order to achieve this task, we take advantage of the method \textit{atExit}. It is inherited from the \textit{RemoteAnalysis} abstract class, and activated automatically at profiling termination. We override it, implementing it with the printing functionalities of class CSVDumper: class designed to dump metrics in a single CSV file, where each metric is printed in columns separated by a comma, on a single row. However, before printing the matrix for methods usage frequency, we need to sum every single thread value, in order to achieve only benchmark iteration separation between frequency counters. This task is achieved by the \textit{\_\_computePerIterMetricProfiles} method:
     \vspace*{0.25cm}
         \begin{minted}[fontsize=\footnotesize, linenos]{java}
 @Override
@@ -2121,9 +2136,9 @@ private LinkedList<MetricProfile> __computePerIterMetricProfiles() {
     
 
 \section{Testing}
-In this chapter we are going to discuss the process we followed to ensure profiler accuracy. We tested each method instrumentation, through specific implementation of a surrogate benchmark application. In order to accomplish this task, we modified the class \textit{JavaKMeans.java} of a \textit{Renaissance} benchmark instance. We almost completely removed its implementation, leaving only the class constructor and the declaration of the method responsible for the class execution: method \textit{run}. Inside the latter, we implemented specific method calls, with the intention of triggering all methods instrumentation of the profiler. We then proceeded to modify profiler set-up implementation, to ensure that \textit{JavaKMeans.java} was the only class called during profiling.
+In this chapter we discuss the process we followed to ensure profiler accuracy. We tested each method instrumentation, through specific implementation of a surrogate benchmark application. In order to accomplish this task, we modified the class \textit{JavaKMeans.java} of a \textit{Renaissance} \ar{Add reference to the suite} benchmark instance. We almost completely removed its implementation, leaving only the class constructor and the declaration of the method responsible for the class execution: method \textit{run}. Inside the latter, we implemented specific method calls, with the intention of triggering all methods instrumentation of the profiler. We then proceeded to modify profiler set-up implementation, to ensure that \textit{JavaKMeans.java} was the only class called during profiling.
 \newline \newline
-Let's take for example the selected methods for the interface \textit{ConcurrentMap} of the Concurrent Collections (CCOLL) profiler module, discussed in the Analysis chapter (chapter 2):
+Let's take for example the selected methods for the interface \textit{ConcurrentMap} of the Concurrent Collections (CCOLL) profiler module, discussed in chapter 2:
 \begin{itemize}
     \item   V compute(K key, BiFunction<? super K,? super V,? extends V> remappingFunction)
     \mbox{}\\ $\Rightarrow$   boolean replace(K key, V oldValue, V newValue)
@@ -2192,7 +2207,7 @@ public final class JavaKMeans {
 }
 \end{minted}
 \vspace*{0.25cm}
-We left class constructor (lines 5-8) and global variables declaration (lines 2 and 3) to allow correct functioning of the benchmark. We removed implementation of method \textit{run} (lines 10-34), replacing it as follows:
+\ar{Please avoid Italian names in the code.} We left class constructor (lines 5-8) and global variables declaration (lines 2 and 3) to allow correct functioning of the benchmark. We removed implementation of method \textit{run} (lines 10-34), replacing it as follows:
 \begin{itemize}
     \item \textbf{Line 12}: we declare a \textit{ConcurrentMap} object, assigning it with a new instance of a \textit{ConcurrentHashMap}.
     \item \textbf{Lines 13-15, 27-19}: these lines will trigger 6 instrumentation snippets for frequency counter of method \textit{V put(K key, V value)}.
@@ -2208,7 +2223,7 @@ We left class constructor (lines 5-8) and global variables declaration (lines 2 
     \item \textbf{Line 32}: this instruction will trigger 1 instrumentation snippet for frequency counter of method \textit{V get(Object key)}.
     \item \textbf{Line 33}: this instruction will trigger 1 instrumentation snippet for frequency counter of method \textit{void clear()}.
 \end{itemize}
-During execution of the customized Renaissance benchmark, class \textit{JavaKMeans} is ran four times. Thus, all instrumentation triggering just listed need to be considered multiplied by 4. Running the profiler onto the Renaissance benchmark, altered with the implementation code just listed above, produced the results represented in figures 5.1 and 5.2. At line 6 of both tables, the results of the testing analysis are represented, and correspond to the ones expected.
+During execution of the customized Renaissance benchmark, class \textit{JavaKMeans} is ran four times. Thus, all instrumentation triggering just listed need to be considered multiplied by 4. Running the profiler onto the Renaissance benchmark, altered with the implementation code just listed above, produced the results represented in figures 5.1\ar{Figure, not figure} and 5.2 \ar{? The figure should belong to this chapter, isn't it?}. At line 6 of both tables, the results of the testing analysis are represented, and correspond to the ones expected.
 \newline \newline
 We repeated this process for each method of interest, checking for bugs, and solving them when found. After complementing testing, thus achieving all expected results, we were able to ensure two major functionalities:
 \begin{enumerate}
@@ -2229,6 +2244,8 @@ We repeated this process for each method of interest, checking for bugs, and sol
     \caption{Metrics for testing of ConcurrentMap methos of CCOLL profiler module (PART 2).}
     \label{fig:fig1}
 \end{figure}
+
+
 
 
 \chapter{Evaluation}
