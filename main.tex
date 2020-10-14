@@ -1,11 +1,16 @@
 \documentclass[]{usiinfthesis}
 
+\newcommand{\mynote}[2]{\fbox{\bfseries\sffamily\scriptsize#1}{\small\textsf{\emph{#2}}}\fbox{\bfseries\sffamily\scriptsize}}
+%\newcommand{\mynote}[2]{}{}
+\newcommand\ar[1]{\mynote{AR}{#1}}
+
 \usepackage{minted}
 \usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{rotating}
-\title{Profiling and Analysing Concurrent Libraries on the Java Virtual Machine}
+\usepackage{CJKutf8}
+\title{Profiling and Analysing Concurrent Libraries\\ on the Java Virtual Machine}
 \author{Luca Reina}
 \Day{21}
 \Month{October}
@@ -21,7 +26,7 @@
 \begin{abstract}
 
 \large
-Concurrent programming is often used in software applications to enhance performance. Correctly implementing concurrent applications is difficult, especially when it comes to managing mutual exclusion of resources. To ease this task, the Java Class Library (JCL) offers several ready-to-use concurrent data structures. \newline The goal of this dissertation is to create a profiler that can be used to dynamically analyze concurrent applications, collecting data on the usage of concurrent data structures offered by the JCL and consequently helping developers mitigate potential inefficiencies. \newline First, we analyze the JCL to identify interfaces and operations of interest. Then, we design and develop a profiler in DiSL (Domain Specific Language for Instrumentation) that relies on dynamic analysis to instrument the identified data structures. The profiler is carefully designed to reduce the profiling overhead as much as possible. We apply the profiler on several modern benchmarks, collecting data on the usage of concurrent data structures on nowadays applications. Finally, by analyzing the obtained results, we locate and pinpoint performance inefficiencies found thanks to our profiler. 
+Concurrent programming is often used in software applications to enhance performance. Nonetheless, correctly implementing concurrent applications is difficult, especially when it comes to managing mutual exclusion of resources. To ease this task, the Java Class Library (JCL) offers several ready-to-use concurrent libraries. \newline The goal of this dissertation is to create a profiler that can be used to dynamically analyze concurrent applications, collecting data on the usage of concurrent libraries offered by the JCL. \newline First, we analyze the JCL to identify commonly used classes and methods. Then, we design and develop a profiler that relies on DiSL (Domain Specific Language for Instrumentation) and dynamic analysis to instrument the identified classes and methods of interest. The tool is carefully designed to reduce the profiling overhead as much as possible. We apply the profiler on several modern benchmarks, collecting data on the usage of selected methods and classes of interest. Finally, we analyze the obtained results, characterizing the usage frequency of concurrent libraries in modern workloads.
 \end{abstract}
 \begin{acknowledgements}
 \end{acknowledgements}
@@ -31,27 +36,76 @@ Concurrent programming is often used in software applications to enhance perform
 \mainmatter
 \chapter{Introduction}
 \large
-This chapter represents an introduction on the work discussed in this thesis dissertation. Section 1.1 illustrates the reasoning behind the need for a profiler for concurrent libraries. Section 1.2 introduces the goals and the challanges we faced. Section 1.3 discusses the contribution brought by our work. Finally, Section 1.4 outlines dissertation structure.
-
+This chapter introduces the work presented in this thesis dissertation. Section 1.1 illustrates the need for a profiler for concurrent libraries. Section 1.2 introduces the goals and the challenges we faced. Section 1.3 discusses the contribution brought by our work. Finally, Section 1.4 outlines the structure of the dissertation..
 
 \section{Motivation}
 For a long time, computation was exclusively sequential, and operations were executed only by single-core processors. Technology was evolving fast, and big leaps forward were achieved almost regularly, producing impactful improvements in the already existing and established architecture. In the early 2000s the focus slowly started shifting as the first multi-core processors began to appear, and concomitant therewith, evolution in technology for single processing units was reaching a peak. 
 
-Nowadays, multi-core architectures represent the norm, and with that, concurrent programming has become fundamental to enhance performance and build competitive software. Nonetheless, writing efficient code that takes proper advantage of this technology is still a complicated -and sometimes troublesome- task. Programmers are in fact often on the lookout for simpler and more efficient ways to achieve concurrency, and programming languages generally offer constructs to approach it in a more structured way. 
+Nowadays, multi-core architectures represent the norm, and with that, concurrent programming has become fundamental to enhance performance and build competitive software. Nonetheless, writing efficient code that takes proper advantage of this technology is still a complicated -- and sometimes troublesome -- task. Programmers are in fact often on the lookout for simpler and more efficient ways to achieve concurrency, and programming languages generally offer constructs to approach it in a more structured way. 
 
 However, despite the abundance of available libraries, there are very few studies -if none- on the frequency in which they are used. This information may turn out to be very useful in a variety of contexts:
 
 \begin{itemize}
-    \item \textit{Compiler development}: having reliable and accurate information about the most used methods and classes of concurrent libraries would give compiler developers the opportunity of focusing on optimization for such methods. Thus, creating better performing compilers, specifically designed for real usage.
-    \item \textit{Libraries Implementation}: library implementers would have information about the most used constructs of available concurrent libraries. This data might be used when deciding where to focus their future efforts. For example, improvements could be centered around popular libraries and less on the least used ones. The same libraries could also operate as a blueprint when developing new ones.
+    \item \textit{Compiler development}: having reliable and accurate information about the most used methods and classes of concurrent libraries in modern workloads would give compiler developers the opportunity of focusing on optimizations for such methods, thus creating better performing compilers. %, specifically designed for real usage.
+    \item \textit{Libraries implementation}: library implementers would have information about the most used constructs of available concurrent libraries. This data might be used when deciding where to focus their future efforts. For example, improvements could be centered around popular libraries and less on the least used ones. The same libraries could also operate as a blueprint when developing new ones.
     \item \textit{Research}: empirical studies on the usage of libraries are generally welcomed by the research community since they represent accurate information that could be used for future research developments.
 \end{itemize}
 Yet, to the best of our knowledge, there exist no profilers that can collect this type of information. 
 
 \section{Goals and Challenges}
-In this dissertation, we present the design and the development of an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the Java Class Library (JCL) for software running on the Java Virtual Machine (JVM). Accuracy is ensured through careful implementation, testing, and usage of DiSL (Domain Specific Language for Instrumentation), domain-specific language specifically designed for out-of-process bytecode instrumentation, that relies on Aspect-Oriented Programming (AOP) principles to allow the implementation of dynamic analysis for applications running on the JVM. Efficiency is ensured through the DiSL Reflection API, which makes it possible to avoid the usage of expensive runtime checks, and the Shadow VM, which allows elaborating the gathered data in a separate JVM. 
+In this dissertation, we present the design and the development of an accurate and efficient profiler that can collect information on the usage of concurrent libraries included in the Java Class Library (JCL) for software running on the Java Virtual Machine (JVM). Accuracy is ensured through careful implementation, testing, and usage of DiSL, a domain-specific language and framework for bytecode instrumentation. Efficiency is ensured through the DiSL Reflection API, which makes it possible to avoid the usage of expensive runtime checks, the Shadow VM, which allows elaborating the gathered data in a separate JVM and careful instrumentation that makes use of efficient data structures and injects as less code as possible.
 
-Our work faces remarkable challenges. The profiler needs to focus on many different tasks in order to achieve accurate data collection of methods usage frequency. For example, the problem of instrumenting \textit{nested methods}: instrumented methods that aren’t part of the target application code, rather of the source-code implementation of other instrumented methods. If not handled correctly, it may lead to incorrect measurements. Our work identifies where method nesting happens and employs efficient techniques in order to guarantee profiler accuracy. Furthermore, our profiling includes the injection of instrumentation code inside the target application, which may cause data perturbation and performance slowdown, if not carefully designed. Our work takes advantage of several techniques to keep data disruption and overhead at their minimum, profiling techniques, and architectural design choices specifically implemented in order to increase the efficiency and accuracy of the profiler.
+Our work faces remarkable challenges. The profiler needs to focus on many different tasks in order to achieve accurate data collection of methods usage frequency. Firstly, the problem of instrumenting \textit{nested method invocations}:  invocations to instrumented methods inside other instrumented methods, thus, methods that aren’t part of the target application code, rather of the source-code implementation of other instrumented methods. If not handled correctly, the profiler will detect calls to libraries done by library code rather than user code, which may be undesirable. Our work identifies where method nesting happens and employs efficient techniques in order to guarantee profiler accuracy. Furthermore, our profiling includes the injection of instrumentation code inside the target application, which may cause measurement perturbation and performance slowdown, if not carefully designed. Our work takes advantage of several techniques to keep data disruption and overhead low, such as profiling techniques, and architectural design choices specifically implemented in order to increase the efficiency and accuracy of the profiler.
+
+
+\section{Contributions}
+To achieve our goal of collecting information on the usage of concurrent libraries made available by the JCL and used by applications running on the JVM, this dissertation makes the following contributions.
+
+\subsection{Analysis}
+By carefully analyzing  the JCL, we select all the relevant classes and interfaces representing concurrent libraries, and we divide them into 5 categories, which leads to the definition of as many different profiler modules, named as follows:
+\begin{itemize}
+    \item \textbf{CCOLL}, focusing on concurrent collections and queues.
+    \item \textbf{SCOLL}, focusing on synchronized collections.
+    \item \textbf{ELOCK}, focusing on explicit locks.
+    \item \textbf{SYNCHRONIZERS}, focusing on synchronizers.
+    \item \textbf{FUTURE}, focusing on asynchronous computation.
+\end{itemize}
+For every selected class, we choose all the major methods of interest. In order to minimize overhead and to avoid introducing unnecessary complexity, we desist from using our profiler to blindly analyze all class methods. Instead, we want to select a smaller, but significant, group of them, leaving out side methods. To accomplish this task, we follow two main criteria: perceived high frequency in usage and structure modification power (i.e. all methods that execute operations of data modification inside the represented structures: creation, deletion, and modification methods).
+
+\subsection{Profiler}
+We design and develop an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the JCL for software running on the JVM. The profiler  is composed of three different JVMs running simultaneously and that communicate with one another. [DRAFT] Firstly, the Target Application Server, where the software to be profiled runs.\ar{No. This is the target application (not server) and is the observed application, where the original program + the instrumentation logic run} Then, the DiSL server, which is responsible for out-of-process bytecode instrumentation, thus, for intercepting the loading of specific classes by the target application, and then for injecting them with the instrumentation code as needed. Analysis data is collected inside the target application, which then sends it to the ShadowVM: a third server specifically designed for the analysis operations. This component avoids the injection of analysis code in the target application, which reduces the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible measurement perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
+\begin{itemize}
+\item \textbf{Instrumentation classes}: they are responsible for defining  instrumentation code. They communicate which classes and methods should be instrumented to the DiSL server, which intercepts specified events occurring in the target applications and injects them with DiSL code snippets. For every method of interest, instrumentation increments a specific thread-local counter, that will be then sent to the analysis server by the Local classes.
+\item \textbf{Guard classes}: they are used inside Instrumentation classes and they are responsible for the selection of the instrumentation sites for each method of interest. They also implement the DiSL Reflection API technology, exploiting reflective information of the JCL.
+\item \textbf{Local classes}: they implement the profiler logic inside the target application, collecting instrumented data gathered by the Instrumentation classes, in order to then send them to the analysis server.
+\item \textbf{Remote classes}: they are responsible for elaborating data collected from the profiling of the target application. They exploit ShadowVM technology, which is a separate virtual machine specifically designed for data analysis.
+\end{itemize}
+
+\subsection{Evaluation}
+We evaluate the profiler execution on established benchmarks, focusing on the frequency of concurrent method usage and profiler performance. We collect frequency method usage information on concurrent libraries by profiling \textit{Renaissance} \cite{Renaissance}: a well-established benchmark suite containing a range of modern workloads -mainly concurrent- specifically designed for the JVM.This data is, to the best of our knowledge, completely novel. Our analysis shows that the most used libraries are the concurrent collections (CCOLL) and the explicit locks (ELOCK) with overall more than \(5*10^7\) method calls each. Synchronized collections (SCOLL) and asynchronous computation libraries (FUTURE) are far less used, with less than \(8*10^3\) method calls each. A bit more popular, but still much less used in comparison with the first two, are the synchronizers (SYNCHRONIZERS) with less than \(3*10^3\) method usage. In order to ensure efficiency, we also analyse the execution time for each profiler module and none of them scores more than 1,08x of overhead.
+
+\section{Dissertation Outline}
+[DRAFT]
+
+
+\section{Motivation}
+For a long time, computation was exclusively sequential, and operations were executed only by single-core processors. Technology was evolving fast, and big leaps forward were achieved almost regularly, producing impactful improvements in the already existing and established architecture. In the early 2000s the focus slowly started shifting as the first multi-core processors began to appear, and concomitant therewith, evolution in technology for single processing units was reaching a peak. 
+
+Nowadays, multi-core architectures represent the norm, and with that, concurrent programming has become fundamental to enhance performance and build competitive software. Nonetheless, writing efficient code that takes proper advantage of this technology is still a complicated -- and sometimes troublesome -- task. Programmers are in fact often on the lookout for simpler and more efficient ways to achieve concurrency, and programming languages generally offer constructs to approach it in a more structured way. 
+
+However, despite the abundance of available libraries, there are very few studies -if none- on the frequency in which they are used. This information may turn out to be very useful in a variety of contexts:
+
+\begin{itemize}
+    \item \textit{Compiler development}: having reliable and accurate information about the most used methods and classes of concurrent libraries in modern workloads would give compiler developers the opportunity of focusing on optimizations for such methods, thus creating better performing compilers.
+    \item \textit{Libraries implementation}: library implementers would have information about the most used constructs of available concurrent libraries. This data might be used when deciding where to focus their future efforts. For example, improvements could be centered around popular libraries and less on the least used ones. The same libraries could also operate as a blueprint when developing new ones.
+    \item \textit{Research}: empirical studies on the usage of libraries are generally welcomed by the research community since they represent accurate information that could be used for future research developments.
+\end{itemize}
+Yet, to the best of our knowledge, there exist no profilers that can collect this type of information. 
+
+\section{Goals and Challenges}
+In this dissertation, we present the design and the development of an accurate and efficient profiler that can collect information on the usage of concurrent libraries included in the Java Class Library (JCL) for software running on the Java Virtual Machine (JVM). Accuracy is ensured through careful implementation, testing, and usage of DiSL, a domain-specific language and framework for bytecode instrumentation. Efficiency is ensured through the DiSL Reflection API, which makes it possible to avoid the usage of expensive runtime checks, and the Shadow VM, which allows elaborating the gathered data in a separate JVM. 
+
+Our work faces remarkable challenges. The profiler needs to focus on many different tasks in order to achieve accurate data collection of methods usage frequency. For example, the problem of instrumenting \textit{nested methods}: instrumented methods that aren’t part of the target application code, rather of the source-code implementation of other instrumented methods. If not handled correctly, it may lead to incorrect measurements. Our work identifies where method nesting happens and employs efficient techniques in order to guarantee profiler accuracy. Furthermore, our profiling includes the injection of instrumentation code inside the target application, which may cause measurement perturbation and performance slowdown, if not carefully designed. Our work takes advantage of several techniques to keep data disruption and overhead at their minimum, profiling techniques, and architectural design choices specifically implemented in order to increase the efficiency and accuracy of the profiler.
 
 
 \section{Contributions}
@@ -69,7 +123,7 @@ Previous careful analysis of the JCL, we select all the relevant classes and int
 For every selected class, we choose all the major methods of interest. In order to minimize overhead and to avoid introducing unnecessary complexity, we don’t want to use our profiler to analyze all class methods. Instead, we want to select a smaller, but significant, group of them, leaving out minor methods. To accomplish this task, we follow two main criteria: perceived high frequency in usage and structure modification power (i.e. all methods that execute operations of data modification inside the represented structures: creation, deletion, and modification methods).
 
 \subsection{Profiler}
-We design and develop an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the JCL for software running on the JVM. Profiler architecture is composed of three different JVMs running simultaneously and that communicates with one another. Firstly, the Target Application Server, where the software to be profiled runs. Then, the DiSL server, which is responsible for out of process bytecode instrumentation, thus, for intercepting specific events of the target application, and then for injecting them with the instrumentation code. Analysis data is collected inside the target application server, which then sends it to the ShadowVM: the server specifically designed for the analysis operations. It is used instead of injecting the target application with the analysis code, therefore reducing the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible data perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
+We design and develop an accurate and efficient profiler that can collect information on the usage of concurrent libraries of the JCL for software running on the JVM. Profiler architecture is composed of three different JVMs running simultaneously and that communicates with one another. Firstly, the Target Application Server, where the software to be profiled runs. Then, the DiSL server, which is responsible for out of process bytecode instrumentation, thus, for intercepting specific events of the target application, and then for injecting them with the instrumentation code. Analysis data is collected inside the target application server, which then sends it to the ShadowVM: the server specifically designed for the analysis operations. It is used instead of injecting the target application with the analysis code, therefore reducing the impact on the target application execution, producing two major benefits: performance improvement and avoidance of possible measurement perturbation due to excessive alteration of the target application code. Based on the architecture, we divide the design of our profiler into four main class modules:
 \begin{itemize}
 \item \textbf{Instrumentation classes}: they are responsible for defining the actual method's instrumentation code. They ask the DiSL server to intercept specified events occurring in the target applications and inject them with DiSL code snippets. For every method of interest, instrumentation increments a specific counter, that will be then sent to the analysis server by the Local classes.
 \item \textbf{Guard classes}: they are used inside Instrumentation classes and they are responsible for the selection of the instrumentation sites for each method of interest. They also implement the DiSL Reflection API technology, exploiting reflective information of the JCL.
@@ -187,10 +241,41 @@ The last framework we decided to add to the profiler was the Future interface an
 \noindent
 We decided to group this type of classes together in order to build a specific profiler module called FUTURE.
 
+\chapter{State of the Art}
+In this chapter we compare our work with the current state of the art. Section 3.1 showcases a variety of parallel profilers, highlighting their strengths and weaknesses. Section 3.2 discusses the contributions that our tool provides in comparison with the profilers presented in section 3.1.
+
+\section{Parallel Profilers}
+Several tools have been developed over the years to achieve dynamic profiling of applications running on the JVM. Many of them focuses on various aspects of concurrency, such as thread and lock profiling and errors and performance inefficiencies detection.
+
+Iceberg \cite{Iceberg} is a tool designed for locating potential software hangs while using synchronized methods in Java applications. It works by recording all synchronized method calls runtime, and then highlighting outliers. Final objective of this profiler is to pinpoint potential performance inefficiencies.
+
+Chappie \cite{Chappie} focuses on energy accounting for Java applications. It allows the analysis of the energy consumption of all application logical units (i.e. methods, classes, packages, etc.), by producing an analyzable energy footprint. However, it doesn't specifically target concurrency.
+
+Heijo \cite{Heijo} is a profiler specifically designed to improve software performance, by visualizing program execution as three-dimensional software city. Each package, class and method of a running java application is represented as a block, which size is defined by execution time. The longer the time, the higher the block. However, it doesn't specifically target concurrency.
+
+Kremlin \cite{Kremlin} is a profiler that focuses on identifying target application regions where implementing concurrency techniques may better performance during program execution. 
+
+jPredictor \cite{jPredictor} focuses on concurrency errors for Java application. It works by instrumenting programs at runtime and producing resulting traced of relevant events. The latter is then statically analyzed, providing concurrency errors predictions.
+
+Free Lunch \cite{FreeLunch} is a tool specifically designed for lock profiling on Java Server application. It focuses on performance issues caused by parallel execution phases where the thread progress is impended by locks. In order to keep the overhead low, it relies on statistical sampling, which may deeply impact tool accuracy.
+
+HPCToolkit \cite{HPCToolkit} is a tool suite specifically designed to pinpoint and quantify bottlenecks that may happen during execution of parallel programs. Thus, it aims to improve overall applications performance.
+
+THOR \cite{THOR} is a profiler that focuses on thread state, providing information about thread idling and execution. However, tool overhead and consequent measurement perturbation may be very high, thus allowing accurate and efficient profilation only for small periods of time.
+
+Other profilers that focus on analyzing concurrency for Java software applications are YourKit \cite{YourKit}, Health Center \cite{Health Center}, vTune Amplifier \cite{vTune Amplifier}, JProfiler \cite{JProfiler}, and Mission Control \cite{Mission Control}. They all focus on common analyses for monitoring and profiling of memory utilization.
+
+
+\section{Contribution} 
+In the previous section, we described all the prevailing profilers that analyze concurrency for applications running on the JVM. They all aim to improve error and performance inefficiencies, focusing on aspects such as thread and lock usage, thread state, bottlenecks, and concurrency errors. However, none of them analyzes method and class usage frequencies for concurrent libraries of the JCL.
+
+Thus, our profiler provides a completely novel point of view, and it is -to the best of our knowledge- the first tool specifically designed for analysing usage frequencies of concurrent libraries of the JCL for applications running on the JVM.
+
+
 
 
 \chapter{Analysis}
-In this chapter we discuss the process that we followed in order to create a selection of classes and methods onto which we ran the analysis. It is devided in 2 main sections. In the first one we explain the grouping and the class selection, while in the second one the method filtering for every selected class.
+In this chapter we discuss the process that we followed in order to create a selection of classes and methods onto which we ran the analysis. It is divided in 2 main sections. In the first one we explain the grouping and the class selection, while in the second one the method filtering for every selected class.
 
 
 \section{Class Selection \& Grouping}
@@ -1041,7 +1126,7 @@ Profiler architecture is composed of three different JVMs, running simultaneousl
 \begin{itemize}
     \item \textbf{Target Application Server} contains the instrumented base program and the instrumented JCL. It is augmented with the Java Virtual Machine Tool Interface (JVMTI) agent, a tool designed for inspecting the state and controlling the execution of Java applications, which is responsible for injecting the Observed JVM with the instrumented base program code. Collected data from profilation is then sent to the Analysis Server. 
     \item \textbf{DiSL Server} is responsible for performing all bytecode instrumentation. Communication between Instrumentation JVM and Observed JVM agent is achieved via socket and bytecode is passed through it.
-    \item \textbf{Analysis Server} is called the ShadowVM and it is specifically designed for the analysis operations. Instead of injecting further instructions inside the target application, all the data manipulating analysis operation are performed in this JVM. Thus, improving profiler performance and reducing data perturbation.
+    \item \textbf{Analysis Server} is called the ShadowVM and it is specifically designed for the analysis operations. Instead of injecting further instructions inside the target application, all the data manipulating analysis operation are performed in this JVM. Thus, improving profiler performance and reducing measurement perturbation.
 \end{itemize}
 
 \begin{figure}
@@ -2700,7 +2785,119 @@ Overall, execution time of all modules takes at most 860 additional seconds to c
 
 \chapter{Conclusion}
 
+Nowadays, multi-core architectures represent the norm. Therefore, concurrent programming has become fundamental to enhance performance and build competitive software. Programming languages generally offer constructs to facilitate approaching concurrency. However, despite the abundance of available libraries, there are very few studies on the frequency in which they are used. This information may turn out to be very useful in a variety of contexts, such as compiler development, libraries implementation and research purposes.
+
+This dissertation proposes a novel methodology of collecting method and class usage frequency information for concurrent libraries of the JCL. We present a new profiler that, relying on AOP principles and out-of-process bytecode instrumentation, allows efficient and accurate profiling of concurrent applications running on the JVM. This tool is specifically designed to analyze usage of concurrent and synchronized collections, explicit locks, synchronizers, and asynchronous computation constructs, by collecting usage frequencies for selected methods of interest of such libraries. We also present a practical usage of the profiler for the Renaissance benchmark suite, providing the scientific community with novel insights on this established and reliable set of benchmarks, while also proving the efficiency of our tool.
+
+\section{Limitation}
+As previously discussed, our profiler works by injecting instrumentation code inside the target applications. This operation is intrinsically modifying as regards the analyzed application code. Concomitant therewith, injected instrumentation code may influence thread scheduling or produce measurement perturbation during target application execution, therefore providing biased metrics as results. We took several measures in order to minimize this problem, such as the usage of thread-local variables to avoid the need of synchronization, and the ShadowVM which allows performing analysis operations on a separate JVM from the one used for the target application execution. These precautions result in an low overhead and consequent efficient profiling, thus reducing changes of significant measurement perturbations.
+
+Moreover, when working with time metrics for software evaluation, instristic biases are inevitable. Thus, our evaluation on the performance for standard benchmarks and profiler modules execution may also be susceptible of biased results. This is mainly caused by the architecture of the machine of choice used to perform the analysis and the non-determinism principles onto which concurrency is based. We took several measures to guarantee -as much as possible- accuracy in our evaluation. We ran each operation on the same machine, which was specifically set-up to only focus on this task. Thus, we made sure that no other execution was running at the time, providing an environment that was controlled to the greatest extent possible. Also, each standard benchmark and profiler module execution was reaped 5 times, and the evaluation was conducted on the average values, with corresponding confidence intervals. Hence, statistically reducing randomness factors of program execution.
+
+
+
+\section{Future Work}
+Future developments of our work include using our tool to profile other benchmark suites, in order to collect more data on the usage of concurrent libraries, improving analyses, and overall possible exploitation of this information. It may also be interesting to compare analysis results of different benchmark suites, and evaluate variation in method usage frequencies.
+
+Furthermore, our profiler could be modified to perform instrumentation of all concurrent method calls, by avoiding removal of nested methods. The results of this profilation would be used to perform analyses on all concurrent method usages, and not only explicitly called methods. This information may provide a deeper look on how concurrent libraries are used, thus, not exclusively by developers, but also internally by the JVM.
+
+Another development, also concerning nested methods, could be profiling only nested method usage, avoiding instrumentation of explicitly called method of software implementations of benchmark suites. This information may be interesting in order to understand how methods of concurrent libraries are solely internally used by the JVM.
+
+Also, collected data representation may also be reinforced in order to avoid manual data reorganization. Automation scripting may be introduced to automatically select the necessary data from each benchmark profilation, and to reorganize it in order to produce ready-to-use global metrics on method usage frequencies and tool performance.
+
+Finally, even though we achieve high efficiency, tool performance may always still be improved. This may be done by further re-evaluation, and enhancement of memory usage management. 
+
 \backmatter
-\bibliographystyle{alpha}
-\bibliography{biblio}
+
+\begin{thebibliography}{9}
+\bibitem{DiSL} 
+L. Marek, A. Villaz\'{o}n, Y. Zheng, D. Ansaloni, W. Binder, Z. Qi
+\textit{DiSL: A Domain-Specific Language for Bytecode Instrumentation}. 
+In \textit{AOSD}, 2012.
+
+\bibitem{ShadowVM} 
+L. Marek, S. Kell, Y. Zheng, L. Bulej, W. Binder, P. T\r{u}ma, D. Ansaloni, A. Sarimbekov, and A. Sewe.
+\textit{ShadowVM: Robust and Comprehensive Dynamic Program Analysis for the Java Platform}. 
+In \textit{GPCE}, 2013.
+
+\bibitem{Renaissance} 
+A. Prokopec, A. Rosà, D. Leopoldseder, G.Duboscq, P. T\r{u}ma, M. Studener, L. Bulej, Y. Zheng, A. Villaz\'{o}n, D. Simon, T. Würthinger, W. Binder.
+\textit{Renaissance: Benchmarking Suite for Parallel Applications on the JVM}. 
+In \textit{PLDI}, 2019.
+
+\bibitem{DiSLReflectionAPI} 
+A. Rosà, E. Rosales, W. Binder.
+\textit{Accurate Reification of Complete Supertype Information for Dynamic Analysis on the JVM}. 
+In \textit{PLDI}, 2019.
+
+\bibitem{FreeLunch} 
+F. David, G. Thomas, J. Lawall, and G. Muller.
+\textit{Continuously Measuring Critical Section Pressure with the Free-Lunch Profiler}. 
+In \textit{OOPSLA,}, pages
+291–307, 2014.
+
+\bibitem{Heijo} 
+K. Ogami, K. Nakasai, H. Hata, K. Matsumoto
+\textit{Heijo: A Real-Time Profiler for Java and Android Applications with Ciry-Like Visualization of Dynamic Code Executions}. 
+In \begin{CJK}{UTF8}{min}コンピうータソフトウェア\end{CJK}, Vol.36, No.2, pages 93-105, 2019
+291–307, 2014.
+
+\bibitem{THOR} 
+Q. M. Teng, H. C. Wang, Z. Xiao, P. F. Sweeney, and E. Duesterwald.
+\textit{THOR: A performance analysis tool for Java applications running on multicore systems.}. 
+In \textit{PLDI}, pages 54–68,2019.
+
+\bibitem{Kremlin} 
+S. Garcia, D. Jeon, C. M. Louie, and M. B. Taylor.
+\textit{Kremlin: Rethinking and Rebooting gprof for the Multicore Age.}. 
+In \textit{PLDI}, pages 458–469, 2011.
+
+\bibitem{jPredictor} 
+F. Chen, T. F. Serbanuta, and G. Rosu.
+\textit{jPredictor: A Predictive Runtime
+Analysis Tool for Java.}. 
+In \textit{ICSE}, pages 221-230, 2008.
+
+\bibitem{Iceberg} 
+M. D. Shah, S. Z. Guyerm.
+\textit{Iceberg: dynamic analysis of Java synchronized methods for investigating runtime performance variability}. 
+In \textit{ISSTA}, pages 119-124, 2018.
+
+\bibitem{Chappie} 
+T. Babakol, A. Canino, K. Mahmoud, R. Saxena, Y. D. Liu.
+\textit{Calm Energy Accounting for Multithreaded Java Applications}. 
+In \textit{ESEC/FSE}, 2020.
+
+\bibitem{HPCToolkit} 
+L. Adhianto, S. Banerjee, M. Fagan, M. Krentel, G. Marin, J. Mellor-Crummey, and N. R. Tallent.
+\textit{HPCTOOLKIT: Tools for Performance Analysis of Optimized Parallel Programs.}. 
+\textit{Concurr. Comput.: Pract. Exper.}, 685–701, 2010.
+
+\bibitem{YourKit} 
+YourKit. YourKit. \url{https://www.yourkit.com}, 2018.
+
+\bibitem{Health Center} 
+IBM. Health Center. \url{http://www.ibm.com/developerworks/java/jdk/tools/healthcenter/}, 2018.
+
+\bibitem{vTune Amplifier} 
+Intel. VTune Amplifier. \url{https://software.intel.com/en-us/intel-vtune-amplifier-xe}, 2018.
+
+\bibitem{JProfiler} 
+ej-technologies. JProfiler. \url{https://www.ej-technologies.com/products/jprofiler/overview.html}, 2018.
+
+\bibitem{Mission Control} 
+Oracle. Java Mission Control. \url{http://www.oracle.com/technetwork/java/javaseproducts/mission-control/java-mission-control-1998576.html}, 2019.
+
+\bibitem{title} 
+autor
+\textit{title}. 
+In \textit{PLDI}, 2019.
+
+
+
+
+
+\end{thebibliography}
+
+
 \end{document}
