@@ -194,34 +194,36 @@ The last framework we decided to add to the profiler was the Future interface an
 We decided to group this type of classes together in order to build a specific profiler module called FUTURE.
 
 \chapter{State of the Art}
-In this chapter we compare our work with the current state of the art. Section 3.1 showcases a variety of parallel profilers, highlighting their strengths and weaknesses. Section 3.2 discusses the contributions that our tool provides in comparison with the profilers presented in section 3.1.
+In this chapter we compare our work with the current state of the art. Section 3.1 showcases a variety of parallel profilers, highlighting their strengths and weaknesses. Section 3.2 discusses the contributions that our tool provides in comparison with the profilers presented in Section 3.1.
+
+\aar{I don't think you should call them "parallel profilers". They are "profiler for concurrent applications". Keep in mind that concurrency and parallelism are different concepts. In Java you can develop concurrent applications, not parallel. Please change the chapter}
 
 \section{Parallel Profilers}
 Several tools have been developed over the years to achieve dynamic profiling of applications running on the JVM. Many of them focuses on various aspects of concurrency, such as thread and lock profiling and errors and performance inefficiencies detection.
 
-Iceberg \cite{Iceberg} is a tool designed for locating potential software hangs while using synchronized methods in Java applications. It works by recording all synchronized method calls runtime, and then highlighting outliers. Final objective of this profiler is to pinpoint potential performance inefficiencies.
+Iceberg \cite{Iceberg} is a tool designed for locating potential software hangs while using synchronized methods in Java applications\ar{You mean, deadlock?}. It works by recording all synchronized method calls at runtime, and then highlighting outliers\ar{It is not clear what "outlier" means here. Shouldn't it detect deadlocked threads (based on the information that you wrote above?}. The final objective of this profiler is to pinpoint potential performance inefficiencies.
 
 Chappie \cite{Chappie} focuses on energy accounting for Java applications. It allows the analysis of the energy consumption of all application logical units (i.e. methods, classes, packages, etc.), by producing an analyzable energy footprint. However, it doesn't specifically target concurrency.
 
-Heijo \cite{Heijo} is a profiler specifically designed to improve software performance, by visualizing program execution as three-dimensional software city. Each package, class and method of a running java application is represented as a block, which size is defined by execution time. The longer the time, the higher the block. However, it doesn't specifically target concurrency.
+Heijo \cite{Heijo} is a profiler specifically designed to improve software performance, by visualizing program execution as a three-dimensional software city\ar{city, really?}. Each package, class and method of a running Java application is represented as a block, which size is defined by execution time. The longer the time, the higher the block. However, it doesn't specifically target concurrency. \ar{I would not include profilers not targeting concurrency. They are out of the scope here. Moreover it is not clear in which conference it was published (the name is in Japanese!)}
 
 Kremlin \cite{Kremlin} is a profiler that focuses on identifying target application regions where implementing concurrency techniques may better performance during program execution. 
 
-jPredictor \cite{jPredictor} focuses on concurrency errors for Java application. It works by instrumenting programs at runtime and producing resulting traced of relevant events. The latter is then statically analyzed, providing concurrency errors predictions.
+jPredictor \cite{jPredictor} focuses on concurrency errors for Java application. It works by instrumenting programs at runtime and producing resulting traces of relevant events. The latter is\ar{are?} then statically analyzed, providing concurrency errors predictions.
 
-Free Lunch \cite{FreeLunch} is a tool specifically designed for lock profiling on Java Server application. It focuses on performance issues caused by parallel execution phases where the thread progress is impended by locks. In order to keep the overhead low, it relies on statistical sampling, which may deeply impact tool accuracy.
+Free Lunch \cite{FreeLunch} is a tool specifically designed for lock profiling on Java Server application. It focuses on performance issues caused by parallel execution phases where the thread progress is impended by locks. In order to keep the overhead low, it relies on statistical sampling, which may deeply impact tool accuracy. \ar{You also detect locks. Does this profiler detect implicit or explicit locks? If only implicit, then your profiler is complimentary to this one (you target only explicit locks)}
 
-HPCToolkit \cite{HPCToolkit} is a tool suite specifically designed to pinpoint and quantify bottlenecks that may happen during execution of parallel programs. Thus, it aims to improve overall applications performance.
+HPCToolkit \cite{HPCToolkit} is a tool suite specifically designed to pinpoint and quantify bottlenecks that may happen during the execution of parallel programs. Thus, it aims to improve overall applications performance.
 
-THOR \cite{THOR} is a profiler that focuses on thread state, providing information about thread idling and execution. However, tool overhead and consequent measurement perturbation may be very high, thus allowing accurate and efficient profilation only for small periods of time.
+THOR \cite{THOR} is a profiler that focuses on thread state, providing information about thread idling and execution. However, tool overhead and consequent measurement perturbation may be very high, thus allowing accurate and efficient profiling only for small periods of time.
 
-Other profilers that focus on analyzing concurrency for Java software applications are YourKit \cite{YourKit}, Health Center \cite{Health Center}, vTune Amplifier \cite{vTune Amplifier}, JProfiler \cite{JProfiler}, and Mission Control \cite{Mission Control}. They all focus on common analyses for monitoring and profiling of memory utilization.
+Other profilers that focus on analyzing concurrency for Java software applications are YourKit \cite{YourKit}, Health Center \cite{Health Center}, vTune Amplifier \cite{vTune Amplifier}, JProfiler \cite{JProfiler}, and Mission Control \cite{Mission Control}. They all focus on common analyses for monitoring and profiling of memory utilization. \ar{Please make sure that they target concurrent applications.}
 
 
 \section{Contribution} 
-In the previous section, we described all the prevailing profilers that analyze concurrency for applications running on the JVM. They all aim to improve error and performance inefficiencies, focusing on aspects such as thread and lock usage, thread state, bottlenecks, and concurrency errors. However, none of them analyzes method and class usage frequencies for concurrent libraries of the JCL.
+In the previous section, we described prevailing profilers that analyze concurrency for applications running on the JVM. They all aim to improve error and performance inefficiencies, focusing on aspects such as thread and lock usage, thread state, bottlenecks, and concurrency errors. However, none of them analyzes method and class usage frequencies for concurrent libraries of the JCL.
 
-Thus, our profiler provides a completely novel point of view, and it is -to the best of our knowledge- the first tool specifically designed for analysing usage frequencies of concurrent libraries of the JCL for applications running on the JVM.
+Thus, our profiler provides a completely novel point of view. To the best of our knowledge, the profiler presented in this dissertation is the first tool specifically designed for analysing usage frequencies of concurrent libraries provided by the JCL in applications running on the JVM.
 
 
 
