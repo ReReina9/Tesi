@@ -104,7 +104,7 @@
 
 %sans-serif titles
 \RequirePackage{sectsty}
-\allsectionsfont{\sffamily}
+\allsectionsfont{\sffamily\textrm}
 
 %geometry
 \RequirePackage[a4paper]{geometry}
